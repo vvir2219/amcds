@@ -1,0 +1,7 @@
+namespace Project
+{
+    class EventQueue
+    {
+
+    }
+}

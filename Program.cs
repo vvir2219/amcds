@@ -17,7 +17,7 @@ namespace Project
         const int BASE_PORT = 5010;
 
         static SystemInfo systemInfo;
-        static SystemState systemState;
+        static SharedState sharedState;
 
         static void PrintUsageAndExit()
         {

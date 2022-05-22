@@ -1,8 +1,11 @@
 namespace Project
 {
-    abstract class algorithm
+    abstract class Algorithm
     {
-        public SystemState systemState { get; set; }
+        public SharedState SharedState { get; set; }
+
+        // own stuff
+        public string AbstractionId { get; set; }
 
     }
 }

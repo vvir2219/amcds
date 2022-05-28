@@ -17,12 +17,13 @@ namespace Project
         const int BASE_PORT = 5010;
 
         static SystemInfo systemInfo;
-        static SharedState sharedState;
+        static System system;
+        static NetworkManager networkManager;
 
         static void PrintUsageAndExit()
         {
             Console.WriteLine("Usage: dotnet run owner index");
-            System.Environment.Exit(1);
+            global::System.Environment.Exit(1);
         }
 
         static void Main(string[] args)
@@ -42,10 +43,12 @@ namespace Project
                     SELF_OWNER = owner,
                     SELF_INDEX = index
                 };
-                systemState = new SystemState {
-                    SystemInfo = systemInfo,
-                    NetworkHelper = new NetworkHelper { SystemInfo = systemInfo }
-                };
+                system = new System(systemInfo);
+                system.RegisterAlgorithmStack("app");
+
+                networkManager = new NetworkManager(systemInfo, system.EventQueue);
+
+                networkManager.StartListener();
                 registerToHub();
             }
             catch
@@ -64,13 +67,14 @@ namespace Project
                 Index = systemInfo.SELF_INDEX
             };
 
-            var message = new Message {
+            var message = new Message
+            {
                 Type = Message.Types.Type.ProcRegistration,
-                MessageUuid = System.Guid.NewGuid().ToString(),
+                MessageUuid = global::System.Guid.NewGuid().ToString(),
                 ProcRegistration = procRegistration
             };
 
-            systemState.NetworkHelper.SendNetworkMessage(
+            networkManager.SendNetworkMessage(
                 message,
                 systemInfo.HUB_HOST,
                 systemInfo.HUB_PORT

@@ -21,17 +21,19 @@ namespace Project
         //   abstraction ids examples: app.pl, app.nnar[register].pl
         public string InstanceId { get; set; }
         public string AbstractionId { get; set; }
+        public Algorithm Parent { get; private set; }
 
         public bool Running { get; set; }
         private Queue<Message> messagesToHandle = new Queue<Message>();
         private Dictionary<Message.Types.Type, Func<Message, bool>> messageHandlers = new Dictionary<Message.Types.Type, Func<Message, bool>>();
 
 
-        public Algorithm(System system, string instanceId, string abstractionId)
+        public Algorithm(System system, string instanceId, string abstractionId, Algorithm parent)
         {
             System = system;
             InstanceId = instanceId;
             AbstractionId = abstractionId;
+            Parent = parent;
             StartHandlingEvents();
         }
 
@@ -80,5 +82,13 @@ namespace Project
             messageHandlers[type] = handler;
         }
 
+        protected string ToAbstractionId(string toInstanceId = "")
+        {
+            var toAbstractionId = AbstractionId + "." + toInstanceId;
+            if (toInstanceId == null || toInstanceId == string.Empty) {
+                toAbstractionId = Parent.AbstractionId;
+            }
+            return toAbstractionId;
+        }
     }
 }

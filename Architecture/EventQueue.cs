@@ -11,10 +11,12 @@ namespace Project
             System = system;
         }
 
-        public void RegisterMessage(Message message) {
-            var algorithm = System.GetAlgorithm(message.ToAbstractionId);
+        public void RegisterMessage(Message message, string toAbstractionId = null) {
+            toAbstractionId = toAbstractionId ?? message.ToAbstractionId ?? "";
+
+            var algorithm = System.GetAlgorithm(toAbstractionId);
             if (algorithm == null) {
-                algorithm = System.RegisterAlgorithmStack(message.ToAbstractionId);
+                algorithm = System.RegisterAlgorithmStack(toAbstractionId);
             }
             algorithm.RegisterMessage(message);
         }

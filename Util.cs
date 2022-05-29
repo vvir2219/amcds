@@ -10,6 +10,9 @@ namespace Project
     {
         public static List<string> DeconstructToInstanceIds(string abstractionId)
         {
+            if (abstractionId == null || abstractionId == string.Empty)
+                return Array.Empty<string>().ToList();
+
             return abstractionId.Split(".").ToList();
         }
 

@@ -8,26 +8,34 @@ namespace Project
     {
         public static string InstanceName = "pl";
 
-        public PerfectLink(System system, string instanceId, string abstractionId) : base(system, instanceId, abstractionId)
+        public PerfectLink(System system, string instanceId, string abstractionId, Algorithm parent)
+            : base(system, instanceId, abstractionId, parent)
         {
             UponMessage(Message.Types.Type.PlDeliver, (message) => {
                 var innerMessage = message.PlDeliver.Message;
-                var innerTo = innerMessage.ToAbstractionId;
+                innerMessage.SystemId = message.SystemId;
 
-                if (innerTo == null || innerTo == string.Empty) {
-                    switch (innerMessage.Type) {
-                        case Message.Types.Type.ProcInitializeSystem:
-                            system.Processes = innerMessage.ProcInitializeSystem.Processes.ToList();
-                            Console.WriteLine($"Starting system {message.SystemId} ...");
-                            return true;
+                System.EventQueue.RegisterMessage(innerMessage);
+                return true;
+            });
 
-                        default:
-                            return false;
+            UponMessage(Message.Types.Type.PlSend, (message) => {
+                var networkMessage = new Message {
+                    SystemId = System.SystemId,
+                    ToAbstractionId = message.ToAbstractionId,
+                    Type = Message.Types.Type.NetworkMessage,
+                    NetworkMessage = new NetworkMessage {
+                        SenderHost = System.SystemInfo.SELF_HOST,
+                        SenderListeningPort = System.SystemInfo.SELF_PORT,
+                        Message = message.PlSend.Message
                     }
-                } else {
-                    System.EventQueue.RegisterMessage(innerMessage);
-                    return true;
-                }
+                };
+                System.NetworkManager.SendMessage(
+                    networkMessage,
+                    message.PlSend.Destination.Host,
+                    message.PlSend.Destination.Port
+                );
+                return true;
             });
         }
     }

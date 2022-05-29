@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Timers;
@@ -13,7 +14,7 @@ namespace Project
         private Dictionary<string, AbstractionTree> subtree = new Dictionary<string, AbstractionTree>();
 
         public AbstractionTree() {}
-        private AbstractionTree(Algorithm algorithm)
+        public AbstractionTree(Algorithm algorithm)
         {
             this.algorithm = algorithm;
         }

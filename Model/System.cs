@@ -11,6 +11,7 @@ namespace Project
     {
         public SystemInfo SystemInfo { get; set; }
 
+        public string SystemId { get; set; }
         public List<ProcessId> processes = new List<ProcessId>();
         public List<ProcessId> Processes {
             get { lock(processes) { return processes; } }
@@ -19,12 +20,14 @@ namespace Project
 
         public ProcessId CurrentProcess { get; private set;}
         public EventQueue EventQueue { get; private set;}
+        public NetworkManager NetworkManager { get; set; }
 
-        private AbstractionTree Algorithms = new AbstractionTree();
+        private AbstractionTree Algorithms;
         private readonly object algorithmsLock = new object();
 
         public System(SystemInfo systemInfo)
         {
+            Algorithms = new AbstractionTree(new ProcManager(this, "", "", null));
             SystemInfo = systemInfo;
             EventQueue = new EventQueue(this);
         }
@@ -48,8 +51,8 @@ namespace Project
                 foreach (var instanceId in instanceIds) {
                     if (! tree.ContainsKey(instanceId)) {
                         var lastAbstractionId = tree.Algorithm?.AbstractionId;
-                        var abstractionId = (lastAbstractionId == null ? "" : lastAbstractionId + ".") + instanceId;
-                        tree.AddAlgorithm(instanceId, CreateAlgorithm(instanceId, abstractionId));
+                        var abstractionId = (lastAbstractionId == null || lastAbstractionId == string.Empty ? "" : lastAbstractionId + ".") + instanceId;
+                        tree.AddAlgorithm(instanceId, CreateAlgorithm(instanceId, abstractionId, tree.Algorithm));
                     }
                     tree = tree[instanceId];
                 }
@@ -57,13 +60,14 @@ namespace Project
             }
         }
 
-        private Algorithm CreateAlgorithm(string instanceId, string abstractionId)
+        private Algorithm CreateAlgorithm(string instanceId, string abstractionId, Algorithm parent)
         {
             var (instanceName, instanceIndex) = Util.DeconstructToInstanceNameAndIndex(instanceId);
             switch (instanceName)
             {
-                case "app": return new App(this, instanceId, abstractionId);
-                case "pl" : return new PerfectLink(this, instanceId, abstractionId);
+                case "app": return new App(this, instanceId, abstractionId, parent);
+                case "pl" : return new PerfectLink(this, instanceId, abstractionId, parent);
+                case "beb": return new BestEffortBroadcast(this, instanceId, abstractionId, parent);
 
                 default:
                     throw new ArgumentException($"Could not register abstraction with id {instanceId}!");

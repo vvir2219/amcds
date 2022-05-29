@@ -17,6 +17,7 @@ namespace Project
         public NetworkManager(System system)
         {
             System = system;
+            System.NetworkManager = this;
         }
 
         public void StartListener()
@@ -101,6 +102,7 @@ namespace Project
                     Type = Message.Types.Type.PlDeliver,
                     MessageUuid = message.MessageUuid,
                     ToAbstractionId = message.ToAbstractionId,
+                    SystemId = message.SystemId,
                     PlDeliver = plDeliver
                 };
             }

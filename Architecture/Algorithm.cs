@@ -53,7 +53,7 @@ namespace Project
                 while (Running) {
                     // wait for a message/event to arrive
                     lock (messagesToHandle) {
-                        if (messagesToHandle.Count > 0) {
+                        while (messagesToHandle.Count > 0) {
                             // handle the message
                             var message = messagesToHandle.Dequeue();
                             (new Thread(() => HandleMessage(message))).Start();

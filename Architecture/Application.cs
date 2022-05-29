@@ -1,6 +1,0 @@
-namespace Project
-{
-    class Application
-    {
-    }
-}

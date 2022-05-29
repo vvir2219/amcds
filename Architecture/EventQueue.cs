@@ -12,6 +12,11 @@ namespace Project
         }
 
         public void RegisterMessage(Message message) {
+            var algorithm = System.GetAlgorithm(message.ToAbstractionId);
+            if (algorithm == null) {
+                algorithm = System.RegisterAlgorithmStack(message.ToAbstractionId);
+            }
+            algorithm.RegisterMessage(message);
         }
     }
 }

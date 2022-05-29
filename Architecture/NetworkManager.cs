@@ -9,29 +9,27 @@ namespace Project
 {
     class NetworkManager
     {
-        public SystemInfo SystemInfo { get; set; }
-        public EventQueue EventQueue { get; set; }
+        public System System { get; set; }
 
         private bool running = true;
         public bool Running { set { running = value; }}
 
-        public NetworkManager(SystemInfo systemInfo, EventQueue eventQueue)
+        public NetworkManager(System system)
         {
-            SystemInfo = systemInfo;
-            EventQueue = eventQueue;
+            System = system;
         }
 
         public void StartListener()
         {
-            IPAddress ipAddress = IPAddress.Parse(SystemInfo.SELF_HOST);
-            IPEndPoint endPoint = new IPEndPoint(ipAddress, SystemInfo.SELF_PORT);
+            IPAddress ipAddress = IPAddress.Parse(System.SystemInfo.SELF_HOST);
+            IPEndPoint endPoint = new IPEndPoint(ipAddress, System.SystemInfo.SELF_PORT);
 
             (new Thread(() =>
             {
                 using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)) {
                     socket.Bind(endPoint);
                     socket.Listen(0);
-                    Console.WriteLine($"Started listening on {ipAddress.ToString()}:{SystemInfo.SELF_PORT}.");
+                    Console.WriteLine($"Started listening on {ipAddress.ToString()}:{System.SystemInfo.SELF_PORT}.");
 
                     while (running) {
                         Socket handler = socket.Accept();
@@ -50,7 +48,7 @@ namespace Project
 
                         var message = Message.Parser.ParseFrom(buffer);
                         Console.WriteLine($"Message: {message.ToString()}");
-                        EventQueue.RegisterMessage(message);
+                        System.EventQueue.RegisterMessage(UnmarshalMessage(message));
                         handler.Close();
                     }
                 }
@@ -60,8 +58,8 @@ namespace Project
         public void SendNetworkMessage(Message message, string host, int port)
         {
             var networkMessage = new NetworkMessage {
-                SenderHost = SystemInfo.SELF_HOST,
-                SenderListeningPort = SystemInfo.SELF_PORT,
+                SenderHost = System.SystemInfo.SELF_HOST,
+                SenderListeningPort = System.SystemInfo.SELF_PORT,
                 Message = message
             };
 
@@ -87,5 +85,29 @@ namespace Project
                 socket.Send(bytes);
             }
         }
+
+        private Message UnmarshalMessage(Message message)
+        {
+            if (message.Type == Message.Types.Type.NetworkMessage) {
+                var networkMessage = message.NetworkMessage;
+                var innerMessage = networkMessage.Message;
+
+                var plDeliver = new PlDeliver {
+                    Sender = System.GetProcessByHostAndPort(networkMessage.SenderHost, networkMessage.SenderListeningPort),
+                    Message = innerMessage
+                };
+
+                return new Message {
+                    Type = Message.Types.Type.PlDeliver,
+                    MessageUuid = message.MessageUuid,
+                    ToAbstractionId = message.ToAbstractionId,
+                    PlDeliver = plDeliver
+                };
+            }
+            else {
+                return message;
+            }
+        }
+
     }
 }

@@ -7,7 +7,6 @@ namespace Project
 
     class AbstractionTree
     {
-        // TODO make this shit thread safe
         private Algorithm algorithm = null;
         public Algorithm Algorithm {get {return algorithm; }}
 
@@ -37,7 +36,7 @@ namespace Project
                 tree = tree.subtree[instanceId];
             }
 
-            return this;
+            return tree;
         }
 
         public bool ContainsKey(string instanceId)

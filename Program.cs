@@ -46,7 +46,7 @@ namespace Project
                 system = new System(systemInfo);
                 system.RegisterAlgorithmStack("app");
 
-                networkManager = new NetworkManager(systemInfo, system.EventQueue);
+                networkManager = new NetworkManager(system);
 
                 networkManager.StartListener();
                 registerToHub();

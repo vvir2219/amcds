@@ -13,31 +13,21 @@ namespace Project
             UponMessage(Message.Types.Type.BebBroadcast, (message) => {
                 foreach (var process in System.Processes)
                 {
-                    var plSendMessage = new Message {
-                        MessageUuid = Guid.NewGuid().ToString(),
-                        ToAbstractionId = ToAbstractionId("pl"),
-                        Type = Message.Types.Type.PlSend,
-                        PlSend = new PlSend {
-                            Destination = process,
-                            Message = message.BebBroadcast.Message
-                        }
-                    };
+                    var plSend = BuildMessage<PlSend>(ToAbstraction("pl"), (self) =>{
+                        self.Destination = process;
+                        self.Message = message.BebBroadcast.Message;
+                    }, (outer) => { outer.MessageUuid = Guid.NewGuid().ToString(); });
 
-                    System.EventQueue.RegisterMessage(plSendMessage);
+                    System.EventQueue.RegisterMessage(plSend);
                 }
                 return true;
             });
 
             UponMessage(Message.Types.Type.PlDeliver, (message) => {
-                var bebDeliver = new Message {
-                    Type = Message.Types.Type.BebDeliver,
-                    ToAbstractionId = ToAbstractionId(), // TODO here could be message.PlDeliver.Message.ToAbstractionId
-                    SystemId = message.SystemId,
-                    BebDeliver = new BebDeliver {
-                        Message = message.PlDeliver.Message,
-                        Sender = message.PlDeliver.Sender
-                    }
-                };
+                var bebDeliver = BuildMessage<BebDeliver>(ToParentAbstraction(), (self) =>{
+                    self.Message = message.PlDeliver.Message;
+                    self.Sender = message.PlDeliver.Sender;
+                }, (outer) => { outer.SystemId = message.SystemId; });
 
                 System.EventQueue.RegisterMessage(bebDeliver);
                 return true;

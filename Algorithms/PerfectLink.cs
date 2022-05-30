@@ -16,7 +16,7 @@ namespace Project
 
                 var plMessage = new Message {
                     SystemId = message.SystemId,
-                    ToAbstractionId = ToAbstractionId(),
+                    ToAbstractionId = ToParentAbstraction(),
                     MessageUuid = message.MessageUuid,
                     Type = Message.Types.Type.PlDeliver,
                     PlDeliver = new PlDeliver {

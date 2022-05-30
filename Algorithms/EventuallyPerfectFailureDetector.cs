@@ -24,39 +24,24 @@ namespace Project
                 foreach (var process in System.Processes) {
                     if (! (alive.Contains(process) || suspected.Contains(process))) {
                         suspected.Add(process);
-                        var suspect = new Message {
-                            Type = Message.Types.Type.EpfdSuspect,
-                            ToAbstractionId = ToAbstractionId(),
-                            EpfdSuspect = new EpfdSuspect {
-                                Process = process
-                            }
-                        };
-                        System.EventQueue.RegisterMessage(suspect);
+
+                        System.EventQueue.RegisterMessage(
+                            BuildMessage<EpfdSuspect>(ToParentAbstraction(), (self) => { self.Process = process; })
+                        );
                     } else if (alive.Contains(process) && suspected.Contains(process)) {
                         suspected.Remove(process);
-                        var restore = new Message {
-                            Type = Message.Types.Type.EpfdRestore,
-                            ToAbstractionId = ToAbstractionId(),
-                            EpfdRestore = new EpfdRestore {
-                                Process = process
-                            }
-                        };
-                        System.EventQueue.RegisterMessage(restore);
+
+                        System.EventQueue.RegisterMessage(
+                            BuildMessage<EpfdRestore>(ToParentAbstraction(), (self) => { self.Process = process; })
+                        );
                     }
 
-                    var plSend = new Message {
-                        Type = Message.Types.Type.PlSend,
-                        ToAbstractionId = ToAbstractionId("pl"),
-                        PlSend = new PlSend {
-                            Destination = process,
-                            Message = new Message {
-                                Type = Message.Types.Type.EpfdInternalHeartbeatRequest,
-                                ToAbstractionId = AbstractionId,
-                                EpfdInternalHeartbeatRequest = new EpfdInternalHeartbeatRequest()
-                            }
-                        }
-                    };
-                    System.EventQueue.RegisterMessage(plSend);
+                    System.EventQueue.RegisterMessage(
+                        BuildMessage<PlSend>(ToAbstraction("pl"), (self) => {
+                            self.Destination = process;
+                            self.Message = BuildMessage<EpfdInternalHeartbeatRequest>(AbstractionId);
+                        })
+                    );
                 }
 
                 alive.Clear();
@@ -72,20 +57,12 @@ namespace Project
 
                 switch (innerMessage.Type) {
                     case Message.Types.Type.EpfdInternalHeartbeatRequest: {
-                        var plSend = new Message {
-                            Type = Message.Types.Type.PlSend,
-                            ToAbstractionId = ToAbstractionId("pl"),
-                            PlSend = new PlSend {
-                                Destination = message.PlDeliver.Sender,
-                                Message = new Message {
-                                    Type = Message.Types.Type.EpfdInternalHeartbeatReply,
-                                    ToAbstractionId = AbstractionId,
-                                    EpfdInternalHeartbeatReply = new EpfdInternalHeartbeatReply()
-                                }
-                            }
-                        };
-
-                        System.EventQueue.RegisterMessage(plSend);
+                        System.EventQueue.RegisterMessage(
+                            BuildMessage<PlSend>(ToAbstraction("pl"), (self) => {
+                                self.Destination = message.PlDeliver.Sender;
+                                self.Message = BuildMessage<EpfdInternalHeartbeatReply>(AbstractionId);
+                            })
+                        );
                         break;
                     }
 
@@ -93,6 +70,7 @@ namespace Project
                         alive.Add(message.PlDeliver.Sender);
                         break;
                     }
+
                     default:
                         throw new Exception($"Cannot handle message of type {innerMessage.Type}");
                 };

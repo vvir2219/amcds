@@ -26,23 +26,11 @@ namespace Project
                 acks = 0;
                 readlist.Clear();
 
-                var internalRead = new Message {
-                    Type = Message.Types.Type.NnarInternalRead,
-                    ToAbstractionId = AbstractionId,
-                    NnarInternalRead = new NnarInternalRead {
-                        ReadId = readid
-                    }
-                };
-
-                var bebBroadcast = new Message{
-                    Type = Message.Types.Type.BebBroadcast,
-                    ToAbstractionId = ToAbstractionId("beb"),
-                    BebBroadcast = new BebBroadcast {
-                        Message = internalRead
-                    }
-                };
-
-                System.EventQueue.RegisterMessage(bebBroadcast);
+                System.EventQueue.RegisterMessage(
+                    BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                        self.Message = BuildMessage<NnarInternalRead>(AbstractionId, (self) => { self.ReadId = readid; });
+                    })
+                );
                 return true;
             });
 
@@ -52,51 +40,30 @@ namespace Project
                 readlist.Clear();
                 reading = true;
 
-                var internalRead = new Message {
-                    Type = Message.Types.Type.NnarInternalRead,
-                    ToAbstractionId = AbstractionId,
-                    NnarInternalRead = new NnarInternalRead {
-                        ReadId = readid
-                    }
-                };
-
-                var bebBroadcast = new Message{
-                    Type = Message.Types.Type.BebBroadcast,
-                    ToAbstractionId = ToAbstractionId("beb"),
-                    BebBroadcast = new BebBroadcast {
-                        Message = internalRead
-                    }
-                };
-
-                System.EventQueue.RegisterMessage(bebBroadcast);
+                System.EventQueue.RegisterMessage(
+                    BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                        self.Message = BuildMessage<NnarInternalRead>(AbstractionId, (self) => { self.ReadId = readid; });
+                    })
+                );
                 return true;
             });
 
             UponMessage(Message.Types.Type.BebDeliver, (message) => {
                 var innerMessage = message.BebDeliver.Message;
+
                 switch (innerMessage.Type) {
                     case Message.Types.Type.NnarInternalRead: {
-                        var internalValue = new Message {
-                            Type = Message.Types.Type.NnarInternalValue,
-                            ToAbstractionId = AbstractionId,
-                            NnarInternalValue = new NnarInternalValue {
-                                ReadId = innerMessage.NnarInternalRead.ReadId,
-                                Timestamp = timestamp,
-                                WriterRank = writerRank,
-                                Value = value
-                            }
-                        };
-
-                        var plSend = new Message {
-                            Type = Message.Types.Type.PlSend,
-                            ToAbstractionId = ToAbstractionId("pl"),
-                            PlSend = new PlSend {
-                                Destination = message.BebDeliver.Sender,
-                                Message = internalValue
-                            }
-                        };
-
-                        System.EventQueue.RegisterMessage(plSend);
+                        System.EventQueue.RegisterMessage(
+                            BuildMessage<PlSend>(ToAbstraction("pl"), (self) => {
+                                self.Destination = message.BebDeliver.Sender;
+                                self.Message = BuildMessage<NnarInternalValue>(AbstractionId, (self) => {
+                                    self.ReadId = innerMessage.NnarInternalRead.ReadId;
+                                    self.Timestamp = timestamp;
+                                    self.WriterRank = writerRank;
+                                    self.Value = value;
+                                });
+                            })
+                        );
                         break;
                     }
 
@@ -109,24 +76,14 @@ namespace Project
                             value = nnarInternalWrite.Value;
                         }
 
-                        var ack = new Message {
-                            Type = Message.Types.Type.NnarInternalAck,
-                            ToAbstractionId = AbstractionId,
-                            NnarInternalAck = new NnarInternalAck {
-                                ReadId = nnarInternalWrite.ReadId
-                            }
-                        };
-
-                        var plSend = new Message {
-                            Type = Message.Types.Type.PlSend,
-                            ToAbstractionId = ToAbstractionId("pl"),
-                            PlSend = new PlSend {
-                                Destination = message.BebDeliver.Sender,
-                                Message = ack
-                            }
-                        };
-
-                        System.EventQueue.RegisterMessage(plSend);
+                        System.EventQueue.RegisterMessage(
+                            BuildMessage<PlSend>(ToAbstraction("pl"), (self) =>{
+                                self.Destination = message.BebDeliver.Sender;
+                                self.Message = BuildMessage<NnarInternalAck>(AbstractionId, (self) => {
+                                    self.ReadId = nnarInternalWrite.ReadId;
+                                });
+                            })
+                        );
                         break;
                     }
 
@@ -155,42 +112,28 @@ namespace Project
                             (maxts, rr, readval) = NNAtomicRegister.Highest(readlist.Values);
                             readlist.Clear();
 
-                            Message internalWrite;
+                            Action<NnarInternalWrite> internalWriteBuilder;
                             if (reading) {
-                                internalWrite = new Message {
-                                    Type = Message.Types.Type.NnarInternalWrite,
-                                    ToAbstractionId = AbstractionId,
-                                    NnarInternalWrite = new NnarInternalWrite{
-                                        ReadId = readid,
-                                        Timestamp = maxts,
-                                        WriterRank = rr,
-                                        Value = readval
-                                    }
+                                internalWriteBuilder = (self) => {
+                                    self.ReadId = readid;
+                                    self.Timestamp = maxts;
+                                    self.WriterRank = rr;
+                                    self.Value = readval;
                                 };
                             } else {
-                                internalWrite = new Message
-                                {
-                                    Type = Message.Types.Type.NnarInternalWrite,
-                                    ToAbstractionId = AbstractionId,
-                                    NnarInternalWrite = new NnarInternalWrite
-                                    {
-                                        ReadId = readid,
-                                        Timestamp = maxts + 1,
-                                        WriterRank = System.CurrentProcess.Rank,
-                                        Value = writeval
-                                    }
+                                internalWriteBuilder = (self) => {
+                                    self.ReadId = readid;
+                                    self.Timestamp = maxts + 1;
+                                    self.WriterRank = System.CurrentProcess.Rank;
+                                    self.Value = writeval;
                                 };
                             }
 
-                            var bebBroadcast = new Message{
-                                Type = Message.Types.Type.BebBroadcast,
-                                ToAbstractionId = ToAbstractionId("beb"),
-                                BebBroadcast = new BebBroadcast {
-                                    Message = internalWrite
-                                }
-                            };
-
-                            System.EventQueue.RegisterMessage(bebBroadcast);
+                            System.EventQueue.RegisterMessage(
+                                BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                                    self.Message = BuildMessage<NnarInternalWrite>(AbstractionId, internalWriteBuilder);
+                                })
+                            );
                         }
 
                         break;
@@ -206,21 +149,12 @@ namespace Project
                             Message m;
                             if (reading) {
                                 reading = false;
-                                m = new Message {
-                                    Type = Message.Types.Type.NnarReadReturn,
-                                    FromAbstractionId = AbstractionId,
-                                    ToAbstractionId = ToAbstractionId(),
-                                    NnarReadReturn = new NnarReadReturn {
-                                        Value = readval
-                                    }
-                                };
+
+                                m = BuildMessage<NnarReadReturn>(ToParentAbstraction(), (self) => {
+                                    self.Value = readval;
+                                }, (outer) => { outer.FromAbstractionId = AbstractionId; });
                             } else {
-                                m = new Message {
-                                    Type = Message.Types.Type.NnarWriteReturn,
-                                    FromAbstractionId = AbstractionId,
-                                    ToAbstractionId = ToAbstractionId(),
-                                    NnarWriteReturn = new NnarWriteReturn()
-                                };
+                                m = BuildMessage<NnarWriteReturn>(ToParentAbstraction(), (_) => {}, (outer) => { outer.FromAbstractionId = AbstractionId; });
                             }
 
                             System.EventQueue.RegisterMessage(m);

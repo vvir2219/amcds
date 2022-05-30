@@ -28,45 +28,27 @@ namespace Project
                     }
 
                     case Message.Types.Type.AppBroadcast: {
-                        var valueMessage = new Message{
-                            ToAbstractionId = AbstractionId,
-                            Type = Message.Types.Type.AppValue,
-                            AppValue = new AppValue {
-                                Value = innerMessage.AppBroadcast.Value
-                            }
-                        };
-
-                        var bebMessage = new Message{
-                            Type = Message.Types.Type.BebBroadcast,
-                            ToAbstractionId = ToAbstractionId("beb"),
-                            BebBroadcast = new BebBroadcast {
-                                Message = valueMessage
-                            }
-                        };
+                        var bebMessage = BuildMessage<BebBroadcast>(ToAbstraction("beb"), (message) => {
+                                message.Message = BuildMessage<AppValue>(AbstractionId, (self) => {
+                                    self.Value = innerMessage.AppBroadcast.Value;
+                                });
+                        });
 
                         System.EventQueue.RegisterMessage(bebMessage);
                         break;
                     }
 
                     case Message.Types.Type.AppWrite: {
-                        var nnarWrite = new Message {
-                            Type = Message.Types.Type.NnarWrite,
-                            ToAbstractionId = ToAbstractionId($"nnar[{innerMessage.AppWrite.Register}]"),
-                            NnarWrite = new NnarWrite {
-                                Value = innerMessage.AppWrite.Value
-                            }
-                        };
+                        var nnarWrite = BuildMessage<NnarWrite>(
+                            ToAbstraction($"nnar[{innerMessage.AppWrite.Register}]"),
+                            (self) => { self.Value = innerMessage.AppWrite.Value; });
 
                         System.EventQueue.RegisterMessage(nnarWrite);
                         break;
                     }
 
                     case Message.Types.Type.AppRead: {
-                        var nnarRead = new Message {
-                            Type = Message.Types.Type.NnarRead,
-                            ToAbstractionId = ToAbstractionId($"nnar[{innerMessage.AppRead.Register}]"),
-                            NnarRead = new NnarRead()
-                        };
+                        var nnarRead = BuildMessage<NnarRead>(ToAbstraction($"nnar[{innerMessage.AppRead.Register}]"));
 
                         System.EventQueue.RegisterMessage(nnarRead);
                         break;
@@ -106,14 +88,10 @@ namespace Project
                     NetworkMessage = new NetworkMessage {
                         SenderHost = System.SystemInfo.SELF_HOST,
                         SenderListeningPort = System.SystemInfo.SELF_PORT,
-                        Message = new Message {
-                            Type = Message.Types.Type.AppReadReturn,
-                            ToAbstractionId = AbstractionId,
-                            AppReadReturn = new AppReadReturn {
-                                Register = register,
-                                Value = message.NnarReadReturn.Value
-                            }
-                        }
+                        Message = BuildMessage<AppReadReturn>(AbstractionId, (self) =>{
+                            self.Register = register;
+                            self.Value = message.NnarReadReturn.Value;
+                        }),
                     }
                 };
 
@@ -134,13 +112,9 @@ namespace Project
                     NetworkMessage = new NetworkMessage {
                         SenderHost = System.SystemInfo.SELF_HOST,
                         SenderListeningPort = System.SystemInfo.SELF_PORT,
-                        Message = new Message {
-                            Type = Message.Types.Type.AppWriteReturn,
-                            ToAbstractionId = AbstractionId,
-                            AppWriteReturn = new AppWriteReturn {
-                                Register = register
-                            }
-                        }
+                        Message = BuildMessage<AppWriteReturn>(AbstractionId, (self) => {
+                            self.Register = register;
+                        })
                     }
                 };
 

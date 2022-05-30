@@ -29,7 +29,7 @@ namespace Project
 
                     case Message.Types.Type.AppBroadcast: {
                         var valueMessage = new Message{
-                            ToAbstractionId = "app",
+                            ToAbstractionId = AbstractionId,
                             Type = Message.Types.Type.AppValue,
                             AppValue = new AppValue {
                                 Value = innerMessage.AppBroadcast.Value

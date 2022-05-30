@@ -49,7 +49,7 @@ namespace Project
 
                         var message = Message.Parser.ParseFrom(buffer);
                         Console.WriteLine($"Message: {message.ToString()}");
-                        System.EventQueue.RegisterMessage(UnmarshalMessage(message));
+                        System.EventQueue.RegisterMessage(message);
                         handler.Close();
                     }
                 }
@@ -84,30 +84,6 @@ namespace Project
                 socket.Connect(endPoint);
                 socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(bytes.Length)));
                 socket.Send(bytes);
-            }
-        }
-
-        private Message UnmarshalMessage(Message message)
-        {
-            if (message.Type == Message.Types.Type.NetworkMessage) {
-                var networkMessage = message.NetworkMessage;
-                var innerMessage = networkMessage.Message;
-
-                var plDeliver = new PlDeliver {
-                    Sender = System.GetProcessByHostAndPort(networkMessage.SenderHost, networkMessage.SenderListeningPort),
-                    Message = innerMessage
-                };
-
-                return new Message {
-                    Type = Message.Types.Type.PlDeliver,
-                    MessageUuid = message.MessageUuid,
-                    ToAbstractionId = message.ToAbstractionId,
-                    SystemId = message.SystemId,
-                    PlDeliver = plDeliver
-                };
-            }
-            else {
-                return message;
             }
         }
 

@@ -11,11 +11,21 @@ namespace Project
         public PerfectLink(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            UponMessage(Message.Types.Type.PlDeliver, (message) => {
-                var innerMessage = message.PlDeliver.Message;
-                innerMessage.SystemId = message.SystemId;
+            UponMessage(Message.Types.Type.NetworkMessage, (message) => {
+                var networkMessage = message.NetworkMessage;
 
-                System.EventQueue.RegisterMessage(innerMessage);
+                var plMessage = new Message {
+                    SystemId = message.SystemId,
+                    ToAbstractionId = ToAbstractionId(),
+                    MessageUuid = message.MessageUuid,
+                    Type = Message.Types.Type.PlDeliver,
+                    PlDeliver = new PlDeliver {
+                        Sender = System.GetProcessByHostAndPort(networkMessage.SenderHost, networkMessage.SenderListeningPort),
+                        Message = networkMessage.Message
+                    }
+                };
+
+                System.EventQueue.RegisterMessage(plMessage);
                 return true;
             });
 

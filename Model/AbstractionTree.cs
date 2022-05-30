@@ -14,7 +14,7 @@ namespace Project
         private Dictionary<string, AbstractionTree> subtree = new Dictionary<string, AbstractionTree>();
 
         public AbstractionTree() {}
-        public AbstractionTree(Algorithm algorithm)
+        private AbstractionTree(Algorithm algorithm)
         {
             this.algorithm = algorithm;
         }

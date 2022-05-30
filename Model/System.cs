@@ -27,7 +27,7 @@ namespace Project
 
         public System(SystemInfo systemInfo)
         {
-            Algorithms = new AbstractionTree(new ProcManager(this, "", "", null));
+            Algorithms = new AbstractionTree();
             SystemInfo = systemInfo;
             EventQueue = new EventQueue(this);
         }

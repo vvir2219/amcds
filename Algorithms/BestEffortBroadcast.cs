@@ -15,7 +15,7 @@ namespace Project
                 {
                     var plSendMessage = new Message {
                         MessageUuid = Guid.NewGuid().ToString(),
-                        ToAbstractionId = ToAbstractionId("pl"), // AbstractionId <- this would've been like in the book
+                        ToAbstractionId = ToAbstractionId("pl"),
                         Type = Message.Types.Type.PlSend,
                         PlSend = new PlSend {
                             Destination = process,
@@ -28,18 +28,17 @@ namespace Project
                 return true;
             });
 
-            // sadly, this is useless as messages as the reference implementation does not respect the
-            // book's algorithm
             UponMessage(Message.Types.Type.PlDeliver, (message) => {
                 var bebDeliver = new Message {
                     Type = Message.Types.Type.BebDeliver,
+                    ToAbstractionId = ToAbstractionId(),
                     BebDeliver = new BebDeliver {
                         Message = message.PlDeliver.Message,
                         Sender = message.PlDeliver.Sender
                     }
                 };
 
-                System.EventQueue.RegisterMessage(bebDeliver, ToAbstractionId());
+                System.EventQueue.RegisterMessage(bebDeliver);
                 return true;
             });
         }

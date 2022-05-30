@@ -39,11 +39,13 @@ namespace Project
 
         public void RegisterMessage(Message message)
         {
-            lock (messagesToHandle)
-            {
-                messagesToHandle.Enqueue(message);
-                Monitor.Pulse(messagesToHandle);
-            }
+            (new Thread(() => {
+                lock (messagesToHandle)
+                {
+                    messagesToHandle.Enqueue(message);
+                    Monitor.Pulse(messagesToHandle);
+                }
+            })).Start();
         }
 
         private void StartHandlingEvents()
@@ -56,7 +58,7 @@ namespace Project
                         while (messagesToHandle.Count > 0) {
                             // handle the message
                             var message = messagesToHandle.Dequeue();
-                            (new Thread(() => HandleMessage(message))).Start();
+                            HandleMessage(message);
                         };
                         Monitor.Wait(messagesToHandle);
                     }

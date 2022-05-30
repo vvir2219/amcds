@@ -25,6 +25,7 @@ namespace Project
 
         public bool Running { get; set; }
         private Queue<Message> messagesToHandle = new Queue<Message>();
+        private Queue<Action> eventsToHandle = new Queue<Action>();
         private Dictionary<Message.Types.Type, Func<Message, bool>> messageHandlers = new Dictionary<Message.Types.Type, Func<Message, bool>>();
 
 
@@ -48,6 +49,19 @@ namespace Project
             })).Start();
         }
 
+        protected void RegisterEvent(Action action, int delay)
+        {
+            (new Thread(() => {
+                Thread.Sleep(delay);
+
+                lock (messagesToHandle)
+                {
+                    eventsToHandle.Enqueue(action);
+                    Monitor.Pulse(messagesToHandle);
+                }
+            })).Start();
+        }
+
         private void StartHandlingEvents()
         {
             Running = true;
@@ -59,6 +73,9 @@ namespace Project
                             // handle the message
                             var message = messagesToHandle.Dequeue();
                             HandleMessage(message);
+                        };
+                        while (eventsToHandle.Count > 0) {
+                            eventsToHandle.Dequeue()();
                         };
                         Monitor.Wait(messagesToHandle);
                     }

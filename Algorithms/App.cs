@@ -15,17 +15,19 @@ namespace Project
             UponMessage(Message.Types.Type.PlDeliver, (message) => {
                 var innerMessage = message.PlDeliver.Message;
                 switch (innerMessage.Type) {
-                    case Message.Types.Type.ProcInitializeSystem:
+                    case Message.Types.Type.ProcInitializeSystem: {
                         System.Processes = innerMessage.ProcInitializeSystem.Processes.ToList();
                         System.SystemId = message.SystemId;
                         Console.WriteLine($"Starting system {message.SystemId} ...");
                         break;
+                    }
 
-                    case Message.Types.Type.ProcDestroySystem:
+                    case Message.Types.Type.ProcDestroySystem: {
                         Console.WriteLine($"Stopping ...");
                         break;
+                    }
 
-                    case Message.Types.Type.AppBroadcast:
+                    case Message.Types.Type.AppBroadcast: {
                         var valueMessage = new Message{
                             ToAbstractionId = "app",
                             Type = Message.Types.Type.AppValue,
@@ -44,8 +46,9 @@ namespace Project
 
                         System.EventQueue.RegisterMessage(bebMessage);
                         break;
+                    }
 
-                    case Message.Types.Type.AppWrite:
+                    case Message.Types.Type.AppWrite: {
                         var nnarWrite = new Message {
                             Type = Message.Types.Type.NnarWrite,
                             ToAbstractionId = ToAbstractionId($"nnar[{innerMessage.AppWrite.Register}]"),
@@ -56,6 +59,7 @@ namespace Project
 
                         System.EventQueue.RegisterMessage(nnarWrite);
                         break;
+                    }
 
                     case Message.Types.Type.AppRead: {
                         var nnarRead = new Message {

@@ -32,7 +32,7 @@ namespace Project
         {
             var tree = this;
             foreach(var instanceId in instanceIds) {
-                if (! this.subtree.ContainsKey(instanceId)) return null;
+                if (! tree.subtree.ContainsKey(instanceId)) return null;
 
                 tree = tree.subtree[instanceId];
             }

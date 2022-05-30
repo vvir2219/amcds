@@ -44,6 +44,30 @@ namespace Project
 
                         System.EventQueue.RegisterMessage(bebMessage);
                         break;
+
+                    case Message.Types.Type.AppWrite:
+                        var nnarWrite = new Message {
+                            Type = Message.Types.Type.NnarWrite,
+                            ToAbstractionId = ToAbstractionId($"nnar[{innerMessage.AppWrite.Register}]"),
+                            NnarWrite = new NnarWrite {
+                                Value = innerMessage.AppWrite.Value
+                            }
+                        };
+
+                        System.EventQueue.RegisterMessage(nnarWrite);
+                        break;
+
+                    case Message.Types.Type.AppRead: {
+                        var nnarRead = new Message {
+                            Type = Message.Types.Type.NnarRead,
+                            ToAbstractionId = ToAbstractionId($"nnar[{innerMessage.AppRead.Register}]"),
+                            NnarRead = new NnarRead()
+                        };
+
+                        System.EventQueue.RegisterMessage(nnarRead);
+                        break;
+                    }
+
                     default:
                         throw new Exception($"Cannot handle message of type {innerMessage.Type}");
                 }
@@ -58,6 +82,61 @@ namespace Project
                         SenderHost = System.SystemInfo.SELF_HOST,
                         SenderListeningPort = System.SystemInfo.SELF_PORT,
                         Message = message.BebDeliver.Message
+                    }
+                };
+
+                System.NetworkManager.SendMessage(
+                    networkMessage,
+                    System.SystemInfo.HUB_HOST,
+                    System.SystemInfo.HUB_PORT
+                );
+                return true;
+            });
+
+            UponMessage(Message.Types.Type.NnarReadReturn, (message) => {
+                var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(message.FromAbstractionId).InstanceId);
+
+                var networkMessage = new Message {
+                    SystemId = System.SystemId,
+                    Type = Message.Types.Type.NetworkMessage,
+                    NetworkMessage = new NetworkMessage {
+                        SenderHost = System.SystemInfo.SELF_HOST,
+                        SenderListeningPort = System.SystemInfo.SELF_PORT,
+                        Message = new Message {
+                            Type = Message.Types.Type.AppReadReturn,
+                            ToAbstractionId = AbstractionId,
+                            AppReadReturn = new AppReadReturn {
+                                Register = register,
+                                Value = message.NnarReadReturn.Value
+                            }
+                        }
+                    }
+                };
+
+                System.NetworkManager.SendMessage(
+                    networkMessage,
+                    System.SystemInfo.HUB_HOST,
+                    System.SystemInfo.HUB_PORT
+                );
+                return true;
+            });
+
+            UponMessage(Message.Types.Type.NnarWriteReturn, (message) => {
+                var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(message.FromAbstractionId).InstanceId);
+
+                var networkMessage = new Message {
+                    SystemId = System.SystemId,
+                    Type = Message.Types.Type.NetworkMessage,
+                    NetworkMessage = new NetworkMessage {
+                        SenderHost = System.SystemInfo.SELF_HOST,
+                        SenderListeningPort = System.SystemInfo.SELF_PORT,
+                        Message = new Message {
+                            Type = Message.Types.Type.AppWriteReturn,
+                            ToAbstractionId = AbstractionId,
+                            AppWriteReturn = new AppWriteReturn {
+                                Register = register
+                            }
+                        }
                     }
                 };
 

@@ -31,7 +31,8 @@ namespace Project
             UponMessage(Message.Types.Type.PlDeliver, (message) => {
                 var bebDeliver = new Message {
                     Type = Message.Types.Type.BebDeliver,
-                    ToAbstractionId = ToAbstractionId(),
+                    ToAbstractionId = ToAbstractionId(), // TODO here could be message.PlDeliver.Message.ToAbstractionId
+                    SystemId = message.SystemId,
                     BebDeliver = new BebDeliver {
                         Message = message.PlDeliver.Message,
                         Sender = message.PlDeliver.Sender

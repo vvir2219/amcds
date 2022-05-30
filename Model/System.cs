@@ -69,6 +69,8 @@ namespace Project
                 case "pl" : return new PerfectLink(this, instanceId, abstractionId, parent);
                 case "beb": return new BestEffortBroadcast(this, instanceId, abstractionId, parent);
                 case "nnar": return new NNAtomicRegister(this, instanceId, abstractionId, parent);
+                case "epfd": return new EventuallyPerfectFailureDetector(this, instanceId, abstractionId, parent);
+                case "eld": return new EventualLeaderDetector(this, instanceId, abstractionId, parent);
 
                 default:
                     throw new ArgumentException($"Could not register abstraction with id {instanceId}!");

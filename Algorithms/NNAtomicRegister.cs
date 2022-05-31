@@ -165,9 +165,9 @@ namespace Project
 
                                     m = BuildMessage<NnarReadReturn>(ToParentAbstraction(), (self) => {
                                         self.Value = readval;
-                                    }, (outer) => { outer.FromAbstractionId = AbstractionId; });
+                                    });
                                 } else {
-                                    m = BuildMessage<NnarWriteReturn>(ToParentAbstraction(), (_) => {}, (outer) => { outer.FromAbstractionId = AbstractionId; });
+                                    m = BuildMessage<NnarWriteReturn>(ToParentAbstraction(), (_) => {});
                                 }
 
                                 System.EventQueue.RegisterMessage(m);

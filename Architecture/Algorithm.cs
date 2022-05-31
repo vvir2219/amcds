@@ -162,7 +162,7 @@ namespace Project
         // });
         protected Message BuildMessage<T>(string toAbstractionId, Action<T> innerBuilder = null, Action<Message> outerBuilder = null) where T : new()
         {
-            return Util.BuildMessage<T>(toAbstractionId, innerBuilder, outerBuilder);
+            return Util.BuildMessage<T>(AbstractionId, toAbstractionId, innerBuilder, outerBuilder);
         }
     }
 }

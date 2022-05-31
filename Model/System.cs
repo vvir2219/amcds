@@ -71,6 +71,8 @@ namespace Project
                 case "nnar": return new NNAtomicRegister(this, instanceId, abstractionId, parent);
                 case "epfd": return new EventuallyPerfectFailureDetector(this, instanceId, abstractionId, parent);
                 case "eld": return new EventualLeaderDetector(this, instanceId, abstractionId, parent);
+                case "ec": return new EpochChange(this, instanceId, abstractionId, parent);
+                case "ep": throw new Exception("ep should be initialized by uc");
 
                 default:
                     throw new ArgumentException($"Could not register abstraction with id {instanceId}!");

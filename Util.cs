@@ -72,17 +72,33 @@ namespace Project
             { typeof(PlSend), (message, innerMessage) => { message.Type = Message.Types.Type.PlSend; message.PlSend = innerMessage as PlSend; } }
         };
 
-        public static Message BuildMessage<T>(string toAbstractionId, Action<T> innerBuilder = null, Action<Message> outerBuilder = null) where T : new()
+        public static Message BuildMessage<T>(string fromAbstractionId, string toAbstractionId, Action<T> innerBuilder = null, Action<Message> outerBuilder = null) where T : new()
         {
             T innerMessage = new T();
             if (innerBuilder != null) innerBuilder(innerMessage);
 
-            var message = new Message{ ToAbstractionId = toAbstractionId };
+            var message = new Message{
+                FromAbstractionId = fromAbstractionId,
+                ToAbstractionId = toAbstractionId
+            };
 
             @switch[typeof(T)](message, innerMessage);
 
             if (outerBuilder != null) outerBuilder(message);
             return message;
+        }
+
+        public static ProcessId Maxrank(IEnumerable<ProcessId> processes)
+        {
+            if (processes.Count() == 0)
+                throw new Exception("Cannot compute maxrank with no processes");
+
+            var max = processes.First();
+            foreach (var process in processes) {
+                if (process.Rank > max.Rank)
+                    max = process;
+            }
+            return max;
         }
     }
 }

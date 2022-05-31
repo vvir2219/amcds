@@ -61,7 +61,9 @@ namespace Project
                         Monitor.Pulse(activeEvents);
                     }
                 } else {
-                    inactiveEvents.Enqueue(@event);
+                    lock(inactiveEvents) {
+                        inactiveEvents.Enqueue(@event);
+                    }
                 }
             })).Start();
         }
@@ -81,9 +83,11 @@ namespace Project
                             anyEventHandled = anyEventHandled || eventHandled;
                         };
 
-                        while (anyEventHandled && inactiveEvents.Count > 0) {
-                            var @event = inactiveEvents.Dequeue();
-                            RegisterEvent(@event);
+                        lock (inactiveEvents) {
+                            while (anyEventHandled && inactiveEvents.Count > 0) {
+                                var @event = inactiveEvents.Dequeue();
+                                RegisterEvent(@event);
+                            }
                         }
 
                         Monitor.Wait(activeEvents);

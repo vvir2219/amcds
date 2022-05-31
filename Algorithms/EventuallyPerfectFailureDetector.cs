@@ -45,12 +45,12 @@ namespace Project
                 }
 
                 alive.Clear();
-                RegisterEvent(OnTimeout, delay);
+                RegisterAction(OnTimeout, delay);
             };
 
             alive = System.Processes.ToHashSet();
             suspected = new HashSet<ProcessId>();
-            RegisterEvent(OnTimeout, delay);
+            RegisterAction(OnTimeout, delay);
 
             UponMessage(Message.Types.Type.PlDeliver, (message) => {
                 var innerMessage = message.PlDeliver.Message;
@@ -74,8 +74,6 @@ namespace Project
                     default:
                         throw new Exception($"Cannot handle message of type {innerMessage.Type}");
                 };
-
-                return true;
             });
         }
 

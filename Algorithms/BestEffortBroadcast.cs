@@ -20,7 +20,6 @@ namespace Project
 
                     System.EventQueue.RegisterMessage(plSend);
                 }
-                return true;
             });
 
             UponMessage(Message.Types.Type.PlDeliver, (message) => {
@@ -30,7 +29,6 @@ namespace Project
                 }, (outer) => { outer.SystemId = message.SystemId; });
 
                 System.EventQueue.RegisterMessage(bebDeliver);
-                return true;
             });
         }
     }

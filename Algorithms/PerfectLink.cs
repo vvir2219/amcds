@@ -26,7 +26,6 @@ namespace Project
                 };
 
                 System.EventQueue.RegisterMessage(plMessage);
-                return true;
             });
 
             UponMessage(Message.Types.Type.PlSend, (message) => {
@@ -45,7 +44,6 @@ namespace Project
                     message.PlSend.Destination.Host,
                     message.PlSend.Destination.Port
                 );
-                return true;
             });
         }
     }

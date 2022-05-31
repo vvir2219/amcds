@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using Protocol;
 
 namespace Project
@@ -31,7 +32,6 @@ namespace Project
                         self.Message = BuildMessage<NnarInternalRead>(AbstractionId, (self) => { self.ReadId = readid; });
                     })
                 );
-                return true;
             });
 
             UponMessage(Message.Types.Type.NnarRead, (message) => {
@@ -45,7 +45,6 @@ namespace Project
                         self.Message = BuildMessage<NnarInternalRead>(AbstractionId, (self) => { self.ReadId = readid; });
                     })
                 );
-                return true;
             });
 
             UponMessage(Message.Types.Type.BebDeliver, (message) => {
@@ -90,85 +89,97 @@ namespace Project
                     default:
                         throw new Exception($"Cannot handle message of type {innerMessage.Type}");
                 };
-
-                return true;
             });
 
-            UponMessage(Message.Types.Type.PlDeliver, (message) => {
-                var innerMessage = message.PlDeliver.Message;
+            UponMessage(
+                Message.Types.Type.PlDeliver,
+                (message) => {
+                    var innerMessage = message.PlDeliver.Message;
+                    switch (innerMessage.Type) {
+                        case Message.Types.Type.NnarInternalValue:
+                            if (readid != innerMessage.NnarInternalValue.ReadId) return false;
+                            break;
 
-                switch (innerMessage.Type) {
-                    case Message.Types.Type.NnarInternalValue: {
-                        if (readid != innerMessage.NnarInternalValue.ReadId) return false;
+                        case Message.Types.Type.NnarInternalAck:
+                            if (readid != innerMessage.NnarInternalAck.ReadId) return false;
+                            break;
 
-                        readlist[message.PlDeliver.Sender] = Tuple.Create(
-                                innerMessage.NnarInternalValue.Timestamp,
-                                innerMessage.NnarInternalValue.WriterRank,
-                                innerMessage.NnarInternalValue.Value
-                            );
+                        default:
+                            throw new Exception($"Cannot handle message of type {innerMessage.Type}");
+                    }
+                    return true;
+                },
+                (message) => {
+                    var innerMessage = message.PlDeliver.Message;
 
-                        if (readlist.Count > (System.Processes.Count / 2)) {
-                            int maxts, rr;
-                            (maxts, rr, readval) = NNAtomicRegister.Highest(readlist.Values);
-                            readlist.Clear();
+                    switch (innerMessage.Type) {
+                        case Message.Types.Type.NnarInternalValue: {
 
-                            Action<NnarInternalWrite> internalWriteBuilder;
-                            if (reading) {
-                                internalWriteBuilder = (self) => {
-                                    self.ReadId = readid;
-                                    self.Timestamp = maxts;
-                                    self.WriterRank = rr;
-                                    self.Value = readval;
-                                };
-                            } else {
-                                internalWriteBuilder = (self) => {
-                                    self.ReadId = readid;
-                                    self.Timestamp = maxts + 1;
-                                    self.WriterRank = System.CurrentProcess.Rank;
-                                    self.Value = writeval;
-                                };
+                            readlist[message.PlDeliver.Sender] = Tuple.Create(
+                                    innerMessage.NnarInternalValue.Timestamp,
+                                    innerMessage.NnarInternalValue.WriterRank,
+                                    innerMessage.NnarInternalValue.Value
+                                );
+
+                            if (readlist.Count > (System.Processes.Count / 2)) {
+                                int maxts, rr;
+                                (maxts, rr, readval) = NNAtomicRegister.Highest(readlist.Values);
+                                readlist.Clear();
+
+                                Action<NnarInternalWrite> internalWriteBuilder;
+                                if (reading) {
+                                    internalWriteBuilder = (self) => {
+                                        self.ReadId = readid;
+                                        self.Timestamp = maxts;
+                                        self.WriterRank = rr;
+                                        self.Value = readval;
+                                    };
+                                } else {
+                                    internalWriteBuilder = (self) => {
+                                        self.ReadId = readid;
+                                        self.Timestamp = maxts + 1;
+                                        self.WriterRank = System.CurrentProcess.Rank;
+                                        self.Value = writeval;
+                                    };
+                                }
+
+                                System.EventQueue.RegisterMessage(
+                                    BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                                        self.Message = BuildMessage<NnarInternalWrite>(AbstractionId, internalWriteBuilder);
+                                    })
+                                );
                             }
 
-                            System.EventQueue.RegisterMessage(
-                                BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
-                                    self.Message = BuildMessage<NnarInternalWrite>(AbstractionId, internalWriteBuilder);
-                                })
-                            );
+                            break;
                         }
 
-                        break;
-                    }
+                        case Message.Types.Type.NnarInternalAck:  {
 
-                    case Message.Types.Type.NnarInternalAck:  {
-                        if (readid != innerMessage.NnarInternalAck.ReadId) return false;
+                            acks += 1;
+                            if (acks > (System.Processes.Count / 2)) {
+                                acks = 0;
 
-                        acks += 1;
-                        if (acks > (System.Processes.Count / 2)) {
-                            acks = 0;
+                                Message m;
+                                if (reading) {
+                                    reading = false;
 
-                            Message m;
-                            if (reading) {
-                                reading = false;
+                                    m = BuildMessage<NnarReadReturn>(ToParentAbstraction(), (self) => {
+                                        self.Value = readval;
+                                    }, (outer) => { outer.FromAbstractionId = AbstractionId; });
+                                } else {
+                                    m = BuildMessage<NnarWriteReturn>(ToParentAbstraction(), (_) => {}, (outer) => { outer.FromAbstractionId = AbstractionId; });
+                                }
 
-                                m = BuildMessage<NnarReadReturn>(ToParentAbstraction(), (self) => {
-                                    self.Value = readval;
-                                }, (outer) => { outer.FromAbstractionId = AbstractionId; });
-                            } else {
-                                m = BuildMessage<NnarWriteReturn>(ToParentAbstraction(), (_) => {}, (outer) => { outer.FromAbstractionId = AbstractionId; });
+                                System.EventQueue.RegisterMessage(m);
                             }
 
-                            System.EventQueue.RegisterMessage(m);
+                            break;
                         }
 
-                        break;
+                        default:
+                            throw new Exception($"Cannot handle message of type {innerMessage.Type}");
                     }
-
-                    default:
-                        throw new Exception($"Cannot handle message of type {innerMessage.Type}");
-                }
-
-                return true;
-            });
+                });
         }
 
         private static Tuple<int, int, Value> Highest(IEnumerable<Tuple<int, int, Value>> values)

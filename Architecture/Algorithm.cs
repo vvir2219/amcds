@@ -25,9 +25,9 @@ namespace Project
         public Algorithm Parent { get; private set; }
 
         public bool Running { get; set; }
-        private Queue<Message> messagesToHandle = new Queue<Message>();
-        private Queue<Action> eventsToHandle = new Queue<Action>();
-        private Dictionary<Message.Types.Type, Func<Message, bool>> messageHandlers = new Dictionary<Message.Types.Type, Func<Message, bool>>();
+        private Queue<Event> activeEvents = new Queue<Event>(),
+                             inactiveEvents = new Queue<Event>();
+        private Dictionary<Message.Types.Type, MessageHandler> messageHandlers = new Dictionary<Message.Types.Type, MessageHandler>();
 
 
         public Algorithm(System system, string instanceId, string abstractionId, Algorithm parent)
@@ -41,24 +41,27 @@ namespace Project
 
         public void RegisterMessage(Message message)
         {
-            (new Thread(() => {
-                lock (messagesToHandle)
-                {
-                    messagesToHandle.Enqueue(message);
-                    Monitor.Pulse(messagesToHandle);
-                }
-            })).Start();
-        }
+            var handler = messageHandlers[message.Type];
 
-        protected void RegisterEvent(Action action, int delay)
+            RegisterEvent(Event.NewMessageEvent(handler.Condition, message, handler.Action));
+        }
+        public void RegisterAction(Action action, int? delay = null)
+        {
+            RegisterEvent(Event.NewActionEvent(action), delay);
+        }
+        public void RegisterEvent(Event @event, int? delay = null)
         {
             (new Thread(() => {
-                Thread.Sleep(delay);
+                if (delay.HasValue) Thread.Sleep(delay.Value);
 
-                lock (messagesToHandle)
-                {
-                    eventsToHandle.Enqueue(action);
-                    Monitor.Pulse(messagesToHandle);
+                if (@event.HasCondtitionSatisfied()) {
+                    lock (activeEvents)
+                    {
+                        activeEvents.Enqueue(@event);
+                        Monitor.Pulse(activeEvents);
+                    }
+                } else {
+                    inactiveEvents.Enqueue(@event);
                 }
             })).Start();
         }
@@ -68,38 +71,74 @@ namespace Project
             Running = true;
             (new Thread(() => {
                 while (Running) {
+                    bool anyEventHandled = false;
                     // wait for a message/event to arrive
-                    lock (messagesToHandle) {
-                        while (messagesToHandle.Count > 0) {
+                    lock (activeEvents) {
+                        while (activeEvents.Count > 0) {
                             // handle the message
-                            var message = messagesToHandle.Dequeue();
-                            HandleMessage(message);
+                            var @event = activeEvents.Dequeue();
+                            var eventHandled = HandleEvent(@event);
+                            anyEventHandled = anyEventHandled || eventHandled;
                         };
-                        while (eventsToHandle.Count > 0) {
-                            eventsToHandle.Dequeue()();
-                        };
-                        Monitor.Wait(messagesToHandle);
+
+                        while (anyEventHandled && inactiveEvents.Count > 0) {
+                            var @event = inactiveEvents.Dequeue();
+                            RegisterEvent(@event);
+                        }
+
+                        Monitor.Wait(activeEvents);
                     }
                 }
             })).Start();
         }
 
-        private void HandleMessage(Message message)
+        private bool HandleEvent(Event @event)
         {
-            if (! messageHandlers.ContainsKey(message.Type)) {
-                throw new ArgumentException($"Message of type {message.Type} could not be handled");
+            var eventHandled = false;
+
+            switch (@event.Type) {
+                case EventType.ACTION:
+                    @event.Execute();
+                    eventHandled = true;
+                    break;
+
+                case EventType.CONDITION:
+                    if (! @event.HasCondtitionSatisfied()) {
+                        eventHandled = false;
+                    } else {
+                        @event.Execute();
+                        eventHandled = true;
+                    }
+
+                    RegisterEvent(@event, 50); // with a small delay in case condition is always true
+                    break;
+
+                case EventType.MESSAGE:
+                    if (! @event.HasCondtitionSatisfied()) {
+                        eventHandled = false;
+                        RegisterEvent(@event);
+                    } else {
+                        @event.Execute();
+                        eventHandled = true;
+                    }
+                    break;
             }
 
-            var messageHandled = messageHandlers[message.Type](message);
-            if (! messageHandled) {
-                // put it in unhandled queue
-            }
+            return eventHandled;
         }
 
-        // private Dictionary<Message.Types.Type, Func<Message, bool>> messageHandlers;
-        protected void UponMessage(Message.Types.Type type, Func<Message, bool> handler)
+        protected void UponMessage(Message.Types.Type type, Action<Message> action)
         {
-            messageHandlers[type] = handler;
+            messageHandlers[type] = new MessageHandler(action);
+        }
+        protected void UponMessage(Message.Types.Type type, Func<Message, bool> condition, Action<Message> action)
+        {
+            messageHandlers[type] = new MessageHandler(condition, action);
+        }
+
+        protected void UponCondition(Func<bool> condition, Action action)
+        {
+            RegisterEvent(Event.NewConditionEvent(condition, action));
         }
 
         protected string ToAbstraction(string toInstanceId = "")

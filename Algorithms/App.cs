@@ -57,7 +57,6 @@ namespace Project
                     default:
                         throw new Exception($"Cannot handle message of type {innerMessage.Type}");
                 }
-                return true;
             });
 
             UponMessage(Message.Types.Type.BebDeliver, (message) => {
@@ -76,7 +75,6 @@ namespace Project
                     System.SystemInfo.HUB_HOST,
                     System.SystemInfo.HUB_PORT
                 );
-                return true;
             });
 
             UponMessage(Message.Types.Type.NnarReadReturn, (message) => {
@@ -100,7 +98,6 @@ namespace Project
                     System.SystemInfo.HUB_HOST,
                     System.SystemInfo.HUB_PORT
                 );
-                return true;
             });
 
             UponMessage(Message.Types.Type.NnarWriteReturn, (message) => {
@@ -123,7 +120,6 @@ namespace Project
                     System.SystemInfo.HUB_HOST,
                     System.SystemInfo.HUB_PORT
                 );
-                return true;
             });
         }
 

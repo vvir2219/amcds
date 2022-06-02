@@ -34,21 +34,21 @@ namespace Project
 
                     while (running) {
                         Socket handler = socket.Accept();
-                        Console.WriteLine("Connection accepted");
+                        // Console.WriteLine("Connection accepted");
 
                         // read message length
                         var buffer = new byte[4];
                         handler.Receive(buffer);
 
                         int size = IPAddress.NetworkToHostOrder(BitConverter.ToInt32(buffer, 0));
-                        Console.WriteLine($"Message size: {size}");
+                        // Console.WriteLine($"Message size: {size}");
                         buffer = new byte[size];
 
                         // read the message
                         handler.Receive(buffer, 0, size, SocketFlags.None);
 
                         var message = Message.Parser.ParseFrom(buffer);
-                        Console.WriteLine($"Message: {message.ToString()}");
+                        // Console.WriteLine($"Message: {message.ToString()}");
                         System.RegisterMessage(message);
                         handler.Close();
                     }

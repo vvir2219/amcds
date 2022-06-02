@@ -32,13 +32,7 @@ namespace Project
 
         public Algorithm GetOrCreateAlgorithm(string abstractionId)
         {
-            // return GetAlgorithm(abstractionId) ?? RegisterAlgorithmStack(abstractionId);
-            var algorithm = GetAlgorithm(abstractionId);
-            if (algorithm == null) {
-                algorithm = RegisterAlgorithmStack(abstractionId);
-            }
-
-            return algorithm;
+            return GetAlgorithm(abstractionId) ?? RegisterAlgorithmStack(abstractionId);
         }
 
         public Algorithm GetAlgorithm(string abstractionId)

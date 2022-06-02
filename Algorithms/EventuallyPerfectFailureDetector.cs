@@ -7,7 +7,7 @@ namespace Project
 {
     class EventuallyPerfectFailureDetector : Algorithm
     {
-        private static int delta = 50; // delay increments in ms
+        private static int delta = 100; // delay increments in ms
 
         private HashSet<ProcessId> alive, suspected;
         private int delay = delta;

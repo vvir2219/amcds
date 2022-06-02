@@ -12,7 +12,7 @@ namespace Project
         public EventualLeaderDetector(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            System.RegisterAbstractionStack(AbstractionId + ".epfd");
+            RegisterAbstractionStack(AbstractionId + ".epfd");
 
             suspected = System.Processes.ToHashSet();
             leader = null;
@@ -25,7 +25,7 @@ namespace Project
                 suspected.Remove(epfdRestore.Process);
             });
 
-            UponCondition(() => leader != Util.Maxrank(System.Processes.Except(suspected)),
+            UponCondition(() => System.Processes.Count > suspected.Count && leader != Util.Maxrank(System.Processes.Except(suspected)),
             () => {
                 leader = Util.Maxrank(System.Processes.Except(suspected));
 

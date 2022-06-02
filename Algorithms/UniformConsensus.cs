@@ -1,4 +1,6 @@
 using System;
+using System.Net.Http.Headers;
+using System.Threading;
 using Protocol;
 
 namespace Project
@@ -16,9 +18,9 @@ namespace Project
         public UniformConsensus(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            System.RegisterAbstractionStack(AbstractionId + ".ec");
+            RegisterAbstractionStack(AbstractionId + ".ec");
             leader = System.CurrentProcess;
-            System.RegisterAbstraction(AbstractionId, $"ep[{epochTimestamp}]", CreateEpochConsensus(epochTimestamp));
+            RegisterEpochConsensus();
 
             UponMessage<UcPropose>((ucPropose) => {
                 value = ucPropose.Value;
@@ -36,12 +38,10 @@ namespace Project
                     epochTimestamp = newTimestamp;
                     leader = newLeader;
                     proposed = false;
-                    System.RegisterAbstraction(
-                        AbstractionId, $"ep[{epochTimestamp}]",
-                        CreateEpochConsensus(epochTimestamp, new EpInternalState{
-                            Value = epAborted.Value,
-                            ValueTimestamp = epAborted.ValueTimestamp
-                        }));
+                    RegisterEpochConsensus(new EpInternalState {
+                        Value = epAborted.Value,
+                        ValueTimestamp = epAborted.ValueTimestamp
+                    });
                 });
 
             UponCondition(
@@ -67,6 +67,13 @@ namespace Project
                         );
                     }
                 });
+        }
+
+        public void RegisterEpochConsensus(EpInternalState state = null)
+        {
+            (new Thread(() => {
+                System.RegisterAbstraction(AbstractionId, $"ep[{epochTimestamp}]", CreateEpochConsensus(epochTimestamp, state));
+            })).Start();
         }
 
         public Algorithm CreateEpochConsensus(int epochTimestamp, EpInternalState state = null)

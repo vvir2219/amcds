@@ -49,7 +49,7 @@ namespace Project
 
             UponMessage<PlDeliver, AppPropose>((_, appPropose) => {
                 Trigger(
-                    BuildMessage<UcPropose>(ToAbstraction("uc"), (self) => {
+                    BuildMessage<UcPropose>(ToAbstraction($"uc[{appPropose.Topic}]"), (self) => {
                         self.Value = appPropose.Value;
                     })
                 );
@@ -76,6 +76,14 @@ namespace Project
 
                 SendToHub(
                     BuildMessage<AppWriteReturn>(AbstractionId, (self) =>{ self.Register = register; })
+                );
+            });
+
+            UponMessage<UcDecide>((ucDecide) => {
+                SendToHub(
+                    BuildMessage<AppDecide>(AbstractionId, (self) => {
+                        self.Value = ucDecide.Value;
+                    })
                 );
             });
         }

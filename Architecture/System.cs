@@ -68,7 +68,8 @@ namespace Project
         {
             var tree = Algorithms[parentAbstractionId];
             lock(algorithmsLock) {
-                tree.AddAlgorithm(instanceId, algorithm);
+                if (! tree.ContainsKey(instanceId))
+                    tree.AddAlgorithm(instanceId, algorithm);
             }
         }
 

@@ -48,7 +48,7 @@ namespace Project
             UponCondition(() => states.Count > (System.Processes.Count / 2),
             () => {
                 var highest = Highest(states.Values);
-                if (highest.Value.Defined)
+                if (highest.Value != null && highest.Value.Defined)
                     tmpValue = highest.Value;
                 states.Clear();
 

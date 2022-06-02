@@ -11,7 +11,7 @@ namespace Project
         public EpochChange(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            System.RegisterAbstractionStack(AbstractionId + ".eld");
+            RegisterAbstractionStack(AbstractionId + ".eld");
 
             trusted = System.CurrentProcess;
             lastTimestamp = 0;

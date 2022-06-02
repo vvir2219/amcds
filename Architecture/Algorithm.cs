@@ -36,6 +36,11 @@ namespace Project
             StartHandlingEvents();
         }
 
+        protected void RegisterAbstractionStack(string abstractionid)
+        {
+            (new Thread(() => { System.RegisterAbstractionStack(abstractionid); })).Start();
+        }
+
         public void RegisterMessage(Message message)
         {
             // searching for handlers starting with the most specific to the most generic
@@ -47,7 +52,7 @@ namespace Project
                 typesList.Add(outerMessage.Type);
                 innerMessage = outerMessage.GetInnerMessageByOwnType();
 
-                if (Util.HasProperty<Message>(innerMessage))
+                if (innerMessage != null && Util.HasProperty<Message>(innerMessage))
                     outerMessage = Util.GetProperty<Message>(innerMessage);
                 else
                     break;

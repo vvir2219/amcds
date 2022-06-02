@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net;
 using Protocol;
 
 namespace Project
@@ -21,165 +20,119 @@ namespace Project
         public NNAtomicRegister(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            UponMessage(Message.Types.Type.NnarWrite, (message) => {
-                readid += 1;
-                writeval = message.NnarWrite.Value;
-                acks = 0;
-                readlist.Clear();
-
-                System.EventQueue.RegisterMessage(
-                    BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
-                        self.Message = BuildMessage<NnarInternalRead>(AbstractionId, (self) => { self.ReadId = readid; });
-                    })
-                );
-            });
-
-            UponMessage(Message.Types.Type.NnarRead, (message) => {
+            UponMessage<NnarRead>((_) => {
                 readid += 1;
                 acks = 0;
                 readlist.Clear();
                 reading = true;
 
-                System.EventQueue.RegisterMessage(
+                Trigger(
                     BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
                         self.Message = BuildMessage<NnarInternalRead>(AbstractionId, (self) => { self.ReadId = readid; });
                     })
                 );
             });
 
-            UponMessage(Message.Types.Type.BebDeliver, (message) => {
-                var innerMessage = message.BebDeliver.Message;
-
-                switch (innerMessage.Type) {
-                    case Message.Types.Type.NnarInternalRead: {
-                        System.EventQueue.RegisterMessage(
-                            BuildMessage<PlSend>(ToAbstraction("pl"), (self) => {
-                                self.Destination = message.BebDeliver.Sender;
-                                self.Message = BuildMessage<NnarInternalValue>(AbstractionId, (self) => {
-                                    self.ReadId = innerMessage.NnarInternalRead.ReadId;
-                                    self.Timestamp = timestamp;
-                                    self.WriterRank = writerRank;
-                                    self.Value = value;
-                                });
-                            })
-                        );
-                        break;
-                    }
-
-                    case Message.Types.Type.NnarInternalWrite: {
-                        var nnarInternalWrite = innerMessage.NnarInternalWrite;
-                        if (nnarInternalWrite.Timestamp > timestamp ||
-                            (nnarInternalWrite.Timestamp == timestamp && nnarInternalWrite.WriterRank > writerRank)) {
-                            timestamp = nnarInternalWrite.Timestamp;
-                            writerRank = nnarInternalWrite.WriterRank;
-                            value = nnarInternalWrite.Value;
-                        }
-
-                        System.EventQueue.RegisterMessage(
-                            BuildMessage<PlSend>(ToAbstraction("pl"), (self) =>{
-                                self.Destination = message.BebDeliver.Sender;
-                                self.Message = BuildMessage<NnarInternalAck>(AbstractionId, (self) => {
-                                    self.ReadId = nnarInternalWrite.ReadId;
-                                });
-                            })
-                        );
-                        break;
-                    }
-
-                    default:
-                        throw new Exception($"Cannot handle message of type {innerMessage.Type}");
-                };
+            UponMessage<BebDeliver, NnarInternalRead>((bebDeliver, nnarInternalRead) => {
+                Trigger(
+                    BuildMessage<PlSend>(ToAbstraction("pl"), (self) => {
+                        self.Destination = bebDeliver.Sender;
+                        self.Message = BuildMessage<NnarInternalValue>(AbstractionId, (self) => {
+                            self.ReadId = nnarInternalRead.ReadId;
+                            self.Timestamp = timestamp;
+                            self.WriterRank = writerRank;
+                            self.Value = value;
+                        });
+                    })
+                );
             });
 
-            UponMessage(
-                Message.Types.Type.PlDeliver,
-                (message) => {
-                    var innerMessage = message.PlDeliver.Message;
-                    switch (innerMessage.Type) {
-                        case Message.Types.Type.NnarInternalValue:
-                            if (readid != innerMessage.NnarInternalValue.ReadId) return false;
-                            break;
+            UponMessage<PlDeliver, NnarInternalValue>(
+                (plDeliver, nnarInternalValue) => nnarInternalValue.ReadId == readid,
+                (plDeliver, nnarInternalValue) => {
+                    readlist[plDeliver.Sender] = Tuple.Create(
+                            nnarInternalValue.Timestamp,
+                            nnarInternalValue.WriterRank,
+                            nnarInternalValue.Value
+                        );
 
-                        case Message.Types.Type.NnarInternalAck:
-                            if (readid != innerMessage.NnarInternalAck.ReadId) return false;
-                            break;
+                    if (readlist.Count > (System.Processes.Count / 2)) {
+                        int maxts, rr;
+                        (maxts, rr, readval) = NNAtomicRegister.Highest(readlist.Values);
+                        readlist.Clear();
 
-                        default:
-                            throw new Exception($"Cannot handle message of type {innerMessage.Type}");
-                    }
-                    return true;
-                },
-                (message) => {
-                    var innerMessage = message.PlDeliver.Message;
-
-                    switch (innerMessage.Type) {
-                        case Message.Types.Type.NnarInternalValue: {
-
-                            readlist[message.PlDeliver.Sender] = Tuple.Create(
-                                    innerMessage.NnarInternalValue.Timestamp,
-                                    innerMessage.NnarInternalValue.WriterRank,
-                                    innerMessage.NnarInternalValue.Value
-                                );
-
-                            if (readlist.Count > (System.Processes.Count / 2)) {
-                                int maxts, rr;
-                                (maxts, rr, readval) = NNAtomicRegister.Highest(readlist.Values);
-                                readlist.Clear();
-
-                                Action<NnarInternalWrite> internalWriteBuilder;
-                                if (reading) {
-                                    internalWriteBuilder = (self) => {
-                                        self.ReadId = readid;
-                                        self.Timestamp = maxts;
-                                        self.WriterRank = rr;
-                                        self.Value = readval;
-                                    };
-                                } else {
-                                    internalWriteBuilder = (self) => {
-                                        self.ReadId = readid;
-                                        self.Timestamp = maxts + 1;
-                                        self.WriterRank = System.CurrentProcess.Rank;
-                                        self.Value = writeval;
-                                    };
-                                }
-
-                                System.EventQueue.RegisterMessage(
-                                    BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
-                                        self.Message = BuildMessage<NnarInternalWrite>(AbstractionId, internalWriteBuilder);
-                                    })
-                                );
-                            }
-
-                            break;
+                        Action<NnarInternalWrite> internalWriteBuilder;
+                        if (reading) {
+                            internalWriteBuilder = (self) => {
+                                self.ReadId = readid;
+                                self.Timestamp = maxts;
+                                self.WriterRank = rr;
+                                self.Value = readval;
+                            };
+                        } else {
+                            internalWriteBuilder = (self) => {
+                                self.ReadId = readid;
+                                self.Timestamp = maxts + 1;
+                                self.WriterRank = System.CurrentProcess.Rank;
+                                self.Value = writeval;
+                            };
                         }
 
-                        case Message.Types.Type.NnarInternalAck:  {
-
-                            acks += 1;
-                            if (acks > (System.Processes.Count / 2)) {
-                                acks = 0;
-
-                                Message m;
-                                if (reading) {
-                                    reading = false;
-
-                                    m = BuildMessage<NnarReadReturn>(ToParentAbstraction(), (self) => {
-                                        self.Value = readval;
-                                    });
-                                } else {
-                                    m = BuildMessage<NnarWriteReturn>(ToParentAbstraction(), (_) => {});
-                                }
-
-                                System.EventQueue.RegisterMessage(m);
-                            }
-
-                            break;
-                        }
-
-                        default:
-                            throw new Exception($"Cannot handle message of type {innerMessage.Type}");
+                        Trigger(
+                            BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                                self.Message = BuildMessage<NnarInternalWrite>(AbstractionId, internalWriteBuilder);
+                            })
+                        );
                     }
                 });
+
+            UponMessage<NnarWrite>((nnarWrite) => {
+                readid += 1;
+                writeval = nnarWrite.Value;
+                acks = 0;
+                readlist.Clear();
+
+                Trigger(
+                    BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                        self.Message = BuildMessage<NnarInternalRead>(AbstractionId, (self) => { self.ReadId = readid; });
+                    })
+                );
+            });
+
+            UponMessage<BebDeliver, NnarInternalWrite>((bebDeliver, nnarInternalWrite) => {
+                if (nnarInternalWrite.Timestamp > timestamp ||
+                    (nnarInternalWrite.Timestamp == timestamp && nnarInternalWrite.WriterRank > writerRank)) {
+                    timestamp = nnarInternalWrite.Timestamp;
+                    writerRank = nnarInternalWrite.WriterRank;
+                    value = nnarInternalWrite.Value;
+                }
+
+                Trigger(
+                    BuildMessage<PlSend>(ToAbstraction("pl"), (self) =>{
+                        self.Destination = bebDeliver.Sender;
+                        self.Message = BuildMessage<NnarInternalAck>(AbstractionId, (self) => {
+                            self.ReadId = nnarInternalWrite.ReadId;
+                        });
+                    })
+                );
+            });
+
+            UponMessage<PlDeliver, NnarInternalAck>((plDeliver, nnarInternalAck) => {
+                acks += 1;
+                if (acks > (System.Processes.Count / 2)) {
+                    acks = 0;
+
+                    Message m;
+                    if (reading) {
+                        reading = false;
+                        m = BuildMessage<NnarReadReturn>(ToParentAbstraction(), (self) => { self.Value = readval; });
+                    } else {
+                        m = BuildMessage<NnarWriteReturn>(ToParentAbstraction(), (_) => {});
+                    }
+
+                    Trigger(m);
+                }
+            });
         }
 
         private static Tuple<int, int, Value> Highest(IEnumerable<Tuple<int, int, Value>> values)

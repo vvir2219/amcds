@@ -49,7 +49,7 @@ namespace Project
 
                         var message = Message.Parser.ParseFrom(buffer);
                         Console.WriteLine($"Message: {message.ToString()}");
-                        System.EventQueue.RegisterMessage(message);
+                        System.RegisterMessage(message);
                         handler.Close();
                     }
                 }

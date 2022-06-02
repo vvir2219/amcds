@@ -19,7 +19,6 @@ namespace Project
         }
 
         public ProcessId CurrentProcess { get; private set;}
-        public EventQueue EventQueue { get; private set;}
         public NetworkManager NetworkManager { get; set; }
 
         private AbstractionTree Algorithms;
@@ -29,7 +28,17 @@ namespace Project
         {
             Algorithms = new AbstractionTree();
             SystemInfo = systemInfo;
-            EventQueue = new EventQueue(this);
+        }
+
+        public Algorithm GetOrCreateAlgorithm(string abstractionId)
+        {
+            // return GetAlgorithm(abstractionId) ?? RegisterAlgorithmStack(abstractionId);
+            var algorithm = GetAlgorithm(abstractionId);
+            if (algorithm == null) {
+                algorithm = RegisterAlgorithmStack(abstractionId);
+            }
+
+            return algorithm;
         }
 
         public Algorithm GetAlgorithm(string abstractionId)
@@ -60,6 +69,11 @@ namespace Project
             }
         }
 
+        public void RegisterMessage(Message message, string toAbstractionId = null) {
+            toAbstractionId = toAbstractionId ?? message.ToAbstractionId ?? "";
+            GetOrCreateAlgorithm(toAbstractionId).RegisterMessage(message);
+        }
+
         private Algorithm CreateAlgorithm(string instanceId, string abstractionId, Algorithm parent)
         {
             var (instanceName, instanceIndex) = Util.DeconstructToInstanceNameAndIndex(instanceId);
@@ -69,9 +83,9 @@ namespace Project
                 case "pl" : return new PerfectLink(this, instanceId, abstractionId, parent);
                 case "beb": return new BestEffortBroadcast(this, instanceId, abstractionId, parent);
                 case "nnar": return new NNAtomicRegister(this, instanceId, abstractionId, parent);
-                case "epfd": return new EventuallyPerfectFailureDetector(this, instanceId, abstractionId, parent);
-                case "eld": return new EventualLeaderDetector(this, instanceId, abstractionId, parent);
-                case "ec": return new EpochChange(this, instanceId, abstractionId, parent);
+                // case "epfd": return new EventuallyPerfectFailureDetector(this, instanceId, abstractionId, parent);
+                // case "eld": return new EventualLeaderDetector(this, instanceId, abstractionId, parent);
+                // case "ec": return new EpochChange(this, instanceId, abstractionId, parent);
                 case "ep": throw new Exception("ep should be initialized by uc");
 
                 default:

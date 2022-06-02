@@ -12,63 +12,46 @@ namespace Project
             : base(system, instanceId, abstractionId, parent)
         {
             // messages directly from hub
-            UponMessage(Message.Types.Type.PlDeliver, (message) => {
-                var innerMessage = message.PlDeliver.Message;
-                switch (innerMessage.Type) {
-                    case Message.Types.Type.ProcInitializeSystem: {
-                        System.Processes = innerMessage.ProcInitializeSystem.Processes.ToList();
-                        System.SystemId = message.SystemId;
-                        Console.WriteLine($"Starting system {message.SystemId} ...");
-                        break;
-                    }
+            UponMessage<PlDeliver, ProcInitializeSystem>((plDeliver, procInitializeSystem, outer, inner) => {
+                System.Processes = procInitializeSystem.Processes.ToList();
+                System.SystemId = outer.SystemId;
+                Console.WriteLine($"Starting system {System.SystemId} ...");
+            });
 
-                    case Message.Types.Type.ProcDestroySystem: {
-                        Console.WriteLine($"Stopping ...");
-                        break;
-                    }
+            UponMessage<PlDeliver, ProcDestroySystem>((plDeliver, procDestroySystem) => {
+                Console.WriteLine($"Seek and destroy ...");
+            });
 
-                    case Message.Types.Type.AppBroadcast: {
-                        var bebMessage = BuildMessage<BebBroadcast>(ToAbstraction("beb"), (message) => {
-                                message.Message = BuildMessage<AppValue>(AbstractionId, (self) => {
-                                    self.Value = innerMessage.AppBroadcast.Value;
-                                });
+            UponMessage<PlDeliver, AppBroadcast>((_, appBroadcast) => {
+                var bebMessage = BuildMessage<BebBroadcast>(ToAbstraction("beb"), (message) => {
+                        message.Message = BuildMessage<AppValue>(AbstractionId, (self) => {
+                            self.Value = appBroadcast.Value;
                         });
+                });
 
-                        System.EventQueue.RegisterMessage(bebMessage);
-                        break;
-                    }
-
-                    case Message.Types.Type.AppWrite: {
-                        var nnarWrite = BuildMessage<NnarWrite>(
-                            ToAbstraction($"nnar[{innerMessage.AppWrite.Register}]"),
-                            (self) => { self.Value = innerMessage.AppWrite.Value; });
-
-                        System.EventQueue.RegisterMessage(nnarWrite);
-                        break;
-                    }
-
-                    case Message.Types.Type.AppRead: {
-                        var nnarRead = BuildMessage<NnarRead>(ToAbstraction($"nnar[{innerMessage.AppRead.Register}]"));
-
-                        System.EventQueue.RegisterMessage(nnarRead);
-                        break;
-                    }
-
-                    default:
-                        throw new Exception($"Cannot handle message of type {innerMessage.Type}");
-                }
+                Trigger(bebMessage);
             });
 
-            UponMessage(Message.Types.Type.BebDeliver, (message) => {
-                var networkMessage = new Message {
-                    SystemId = System.SystemId,
-                    Type = Message.Types.Type.NetworkMessage,
-                    NetworkMessage = new NetworkMessage {
-                        SenderHost = System.SystemInfo.SELF_HOST,
-                        SenderListeningPort = System.SystemInfo.SELF_PORT,
-                        Message = message.BebDeliver.Message
-                    }
-                };
+            UponMessage<PlDeliver, AppWrite>((_, appWrite) => {
+                var nnarWrite = BuildMessage<NnarWrite>(
+                    ToAbstraction($"nnar[{appWrite.Register}]"),
+                    (self) => { self.Value = appWrite.Value; });
+
+                Trigger(nnarWrite);
+            });
+
+            UponMessage<PlDeliver, AppRead>((_, appRead) => {
+                Trigger(
+                    BuildMessage<NnarRead>(ToAbstraction($"nnar[{appRead.Register}]"))
+                );
+            });
+
+            UponMessage<BebDeliver>((bebDeliver) => {
+                var networkMessage = BuildMessage<NetworkMessage>("hub", (self) => {
+                    self.SenderHost = System.SystemInfo.SELF_HOST;
+                    self.SenderListeningPort = System.SystemInfo.SELF_PORT;
+                    self.Message = bebDeliver.Message;
+                });
 
                 System.NetworkManager.SendMessage(
                     networkMessage,
@@ -77,21 +60,17 @@ namespace Project
                 );
             });
 
-            UponMessage(Message.Types.Type.NnarReadReturn, (message) => {
-                var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(message.FromAbstractionId).InstanceId);
+            UponMessage<NnarReadReturn>((nnarReadReturn, wrapper) => {
+                var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(wrapper.FromAbstractionId).InstanceId);
 
-                var networkMessage = new Message {
-                    SystemId = System.SystemId,
-                    Type = Message.Types.Type.NetworkMessage,
-                    NetworkMessage = new NetworkMessage {
-                        SenderHost = System.SystemInfo.SELF_HOST,
-                        SenderListeningPort = System.SystemInfo.SELF_PORT,
-                        Message = BuildMessage<AppReadReturn>(AbstractionId, (self) =>{
-                            self.Register = register;
-                            self.Value = message.NnarReadReturn.Value;
-                        }),
-                    }
-                };
+                var networkMessage = BuildMessage<NetworkMessage>("hub", (self) => {
+                    self.SenderHost = System.SystemInfo.SELF_HOST;
+                    self.SenderListeningPort = System.SystemInfo.SELF_PORT;
+                    self.Message = BuildMessage<AppReadReturn>(AbstractionId, (self) =>{
+                        self.Register = register;
+                        self.Value = nnarReadReturn.Value;
+                    });
+                });
 
                 System.NetworkManager.SendMessage(
                     networkMessage,
@@ -100,20 +79,16 @@ namespace Project
                 );
             });
 
-            UponMessage(Message.Types.Type.NnarWriteReturn, (message) => {
-                var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(message.FromAbstractionId).InstanceId);
+            UponMessage<NnarWriteReturn>((nnarWriteReturn, wrapper) => {
+                var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(wrapper.FromAbstractionId).InstanceId);
 
-                var networkMessage = new Message {
-                    SystemId = System.SystemId,
-                    Type = Message.Types.Type.NetworkMessage,
-                    NetworkMessage = new NetworkMessage {
-                        SenderHost = System.SystemInfo.SELF_HOST,
-                        SenderListeningPort = System.SystemInfo.SELF_PORT,
-                        Message = BuildMessage<AppWriteReturn>(AbstractionId, (self) => {
-                            self.Register = register;
-                        })
-                    }
-                };
+                var networkMessage = BuildMessage<NetworkMessage>("hub", (self) => {
+                    self.SenderHost = System.SystemInfo.SELF_HOST;
+                    self.SenderListeningPort = System.SystemInfo.SELF_PORT;
+                    self.Message = BuildMessage<AppWriteReturn>(AbstractionId, (self) =>{
+                        self.Register = register;
+                    });
+                });
 
                 System.NetworkManager.SendMessage(
                     networkMessage,

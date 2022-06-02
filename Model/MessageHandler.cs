@@ -1,23 +1,30 @@
 using System;
+using System.Collections.Generic;
 using Protocol;
 
 namespace Project
 {
     class MessageHandler
     {
-        public Func<Message, bool> Condition {get; private set; }
-        public Action<Message> Action {get; private set; }
+        public int Depth { get; private set; }
+        public Func<List<object>, List<object>, bool> Condition { get; private set; }
+        public Action<List<object>, List<object>> Action { get; private set; }
 
-        public MessageHandler(Action<Message> action)
+        public MessageHandler(int depth, Action<List<object>, List<object>> action)
         {
+            Depth = depth;
             Action = action;
-            Condition = (_) => true;
+            Condition = (_, __) => true;
         }
 
-        public MessageHandler(Func<Message, bool> condition, Action<Message> action)
+        public MessageHandler(
+            int depth,
+            Func<List<object>, List<object>, bool> condition,
+            Action<List<object>, List<object>> action)
         {
-            Action = action;
+            Depth = depth;
             Condition = condition;
+            Action = action;
         }
     }
 }

@@ -1,71 +1,70 @@
-// using Protocol;
+using Protocol;
 
-// namespace Project
-// {
-//     class EpochChange : Algorithm
-//     {
-//         private ProcessId trusted;
-//         private int lastTimestamp;
-//         private int timestamp;
+namespace Project
+{
+    class EpochChange : Algorithm
+    {
+        private ProcessId trusted;
+        private int lastTimestamp;
+        private int timestamp;
 
-//         public EpochChange(System system, string instanceId, string abstractionId, Algorithm parent)
-//             : base(system, instanceId, abstractionId, parent)
-//         {
-//             trusted = System.CurrentProcess;
-//             lastTimestamp = 0;
-//             timestamp = System.CurrentProcess.Rank;
+        public EpochChange(System system, string instanceId, string abstractionId, Algorithm parent)
+            : base(system, instanceId, abstractionId, parent)
+        {
+            System.RegisterAbstractionStack(AbstractionId + ".eld");
 
-//             UponMessage(Message.Types.Type.EldTrust, (message) => {
-//                 trusted = message.EldTrust.Process;
-//                 if (trusted == System.CurrentProcess) {
-//                     timestamp += System.Processes.Count;
+            trusted = System.CurrentProcess;
+            lastTimestamp = 0;
+            timestamp = System.CurrentProcess.Rank;
 
-//                     System.EventQueue.RegisterMessage(
-//                         BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
-//                             self.Message = BuildMessage<EcInternalNewEpoch>(AbstractionId, (self) => {
-//                                 self.Timestamp = timestamp;
-//                             });
-//                         })
-//                     );
-//                 }
-//             });
+            UponMessage<EldTrust>((eldTrust) => {
+                trusted = eldTrust.Process;
+                if (trusted == System.CurrentProcess) {
+                    timestamp += System.Processes.Count;
 
-//             UponMessage(Message.Types.Type.BebDeliver, (message) => {
-//                 var bebDeliver = message.BebDeliver;
-//                 var newEpoch = bebDeliver.Message.EcInternalNewEpoch;
+                    Trigger(
+                        BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                            self.Message = BuildMessage<EcInternalNewEpoch>(AbstractionId, (self) => {
+                                self.Timestamp = timestamp;
+                            });
+                        })
+                    );
+                }
+            });
 
-//                 if (bebDeliver.Sender == trusted && newEpoch.Timestamp > lastTimestamp) {
-//                     lastTimestamp = newEpoch.Timestamp;
+            UponMessage<BebDeliver, EcInternalNewEpoch>((bebDeliver, newEpoch) => {
+                if (bebDeliver.Sender == trusted && newEpoch.Timestamp > lastTimestamp) {
+                    lastTimestamp = newEpoch.Timestamp;
 
-//                     System.EventQueue.RegisterMessage(
-//                         BuildMessage<EcStartEpoch>(ToParentAbstraction(), (self) => {
-//                             self.NewTimestamp = newEpoch.Timestamp;
-//                             self.NewLeader = bebDeliver.Sender;
-//                         })
-//                     );
-//                 } else {
-//                     System.EventQueue.RegisterMessage(
-//                         BuildMessage<PlSend>(ToAbstraction("pl"), (self) => {
-//                             self.Destination = bebDeliver.Sender;
-//                             self.Message = BuildMessage<EcInternalNack>(AbstractionId);
-//                         })
-//                     );
-//                 }
-//             });
+                    Trigger(
+                        BuildMessage<EcStartEpoch>(ToParentAbstraction(), (self) => {
+                            self.NewTimestamp = newEpoch.Timestamp;
+                            self.NewLeader = bebDeliver.Sender;
+                        })
+                    );
+                } else {
+                    Trigger(
+                        BuildMessage<PlSend>(ToAbstraction("pl"), (self) => {
+                            self.Destination = bebDeliver.Sender;
+                            self.Message = BuildMessage<EcInternalNack>(AbstractionId);
+                        })
+                    );
+                }
+            });
 
-//             UponMessage(Message.Types.Type.PlDeliver, (message) => { // NACK
-//                 if (trusted == System.CurrentProcess) {
-//                     timestamp += System.Processes.Count;
+            UponMessage<PlDeliver, EcInternalNack>((_, __) => {
+                if (trusted == System.CurrentProcess) {
+                    timestamp += System.Processes.Count;
 
-//                     System.EventQueue.RegisterMessage(
-//                         BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
-//                             self.Message = BuildMessage<EcInternalNewEpoch>(AbstractionId, (self) => {
-//                                 self.Timestamp = timestamp;
-//                             });
-//                         })
-//                     );
-//                 }
-//             });
-//         }
-//     }
-// }
+                    Trigger(
+                        BuildMessage<BebBroadcast>(ToAbstraction("beb"), (self) => {
+                            self.Message = BuildMessage<EcInternalNewEpoch>(AbstractionId, (self) => {
+                                self.Timestamp = timestamp;
+                            });
+                        })
+                    );
+                }
+            });
+        }
+    }
+}

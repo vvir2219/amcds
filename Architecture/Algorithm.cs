@@ -283,7 +283,7 @@ namespace Project
 
         protected void Trigger(Message message)
         {
-            System.RegisterMessage(message);
+            if (Running) System.RegisterMessage(message);
         }
     }
 }

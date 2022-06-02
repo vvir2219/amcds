@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Linq;
+using System.Numerics;
 using Protocol;
 
 namespace Project
@@ -32,7 +33,7 @@ namespace Project
 
         public Algorithm GetOrCreateAlgorithm(string abstractionId)
         {
-            return GetAlgorithm(abstractionId) ?? RegisterAlgorithmStack(abstractionId);
+            return GetAlgorithm(abstractionId) ?? RegisterAbstractionStack(abstractionId);
         }
 
         public Algorithm GetAlgorithm(string abstractionId)
@@ -41,11 +42,11 @@ namespace Project
                 return Algorithms.GetAlgorithm(abstractionId);
             }
         }
-        public Algorithm RegisterAlgorithmStack(string abstractionId)
+        public Algorithm RegisterAbstractionStack(string abstractionId)
         {
-            return RegisterAlgorithmStack(Util.DeconstructToInstanceIds(abstractionId));
+            return RegisterAbstractionStack(Util.DeconstructToInstanceIds(abstractionId));
         }
-        public Algorithm RegisterAlgorithmStack(List<string> instanceIds)
+        public Algorithm RegisterAbstractionStack(List<string> instanceIds)
         {
             lock(algorithmsLock) {
                 if (instanceIds.Count == 0) return null;
@@ -63,6 +64,14 @@ namespace Project
             }
         }
 
+        public void RegisterAbstraction(string parentAbstractionId, string instanceId, Algorithm algorithm)
+        {
+            var tree = Algorithms[parentAbstractionId];
+            lock(algorithmsLock) {
+                tree.AddAlgorithm(instanceId, algorithm);
+            }
+        }
+
         public void RegisterMessage(Message message, string toAbstractionId = null) {
             toAbstractionId = toAbstractionId ?? message.ToAbstractionId ?? "";
             GetOrCreateAlgorithm(toAbstractionId).RegisterMessage(message);
@@ -77,10 +86,11 @@ namespace Project
                 case "pl" : return new PerfectLink(this, instanceId, abstractionId, parent);
                 case "beb": return new BestEffortBroadcast(this, instanceId, abstractionId, parent);
                 case "nnar": return new NNAtomicRegister(this, instanceId, abstractionId, parent);
-                // case "epfd": return new EventuallyPerfectFailureDetector(this, instanceId, abstractionId, parent);
-                // case "eld": return new EventualLeaderDetector(this, instanceId, abstractionId, parent);
-                // case "ec": return new EpochChange(this, instanceId, abstractionId, parent);
-                case "ep": throw new Exception("ep should be initialized by uc");
+                case "epfd": return new EventuallyPerfectFailureDetector(this, instanceId, abstractionId, parent);
+                case "eld": return new EventualLeaderDetector(this, instanceId, abstractionId, parent);
+                case "ec": return new EpochChange(this, instanceId, abstractionId, parent);
+                case "ep": return (parent as UniformConsensus).CreateEpochConsensus(int.Parse(instanceIndex));
+                case "uc": return new UniformConsensus(this, instanceId, abstractionId, parent);
 
                 default:
                     throw new ArgumentException($"Could not register abstraction with id {instanceId}!");

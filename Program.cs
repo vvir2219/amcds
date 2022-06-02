@@ -43,7 +43,7 @@ namespace Project
                     SELF_INDEX = index
                 };
                 system = new System(systemInfo);
-                system.RegisterAlgorithmStack("app");
+                system.RegisterAbstractionStack("app");
 
                 networkManager = new NetworkManager(system);
 

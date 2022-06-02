@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.Design;
 using System.Linq;
 using Protocol;
 
@@ -11,7 +12,7 @@ namespace Project
         public App(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            // messages directly from hub
+            // messages from hub
             UponMessage<PlDeliver, ProcInitializeSystem>((plDeliver, procInitializeSystem, outer, inner) => {
                 System.Processes = procInitializeSystem.Processes.ToList();
                 System.SystemId = outer.SystemId;
@@ -46,57 +47,52 @@ namespace Project
                 );
             });
 
-            UponMessage<BebDeliver>((bebDeliver) => {
-                var networkMessage = BuildMessage<NetworkMessage>("hub", (self) => {
-                    self.SenderHost = System.SystemInfo.SELF_HOST;
-                    self.SenderListeningPort = System.SystemInfo.SELF_PORT;
-                    self.Message = bebDeliver.Message;
-                });
-
-                System.NetworkManager.SendMessage(
-                    networkMessage,
-                    System.SystemInfo.HUB_HOST,
-                    System.SystemInfo.HUB_PORT
+            UponMessage<PlDeliver, AppPropose>((_, appPropose) => {
+                Trigger(
+                    BuildMessage<UcPropose>(ToAbstraction("uc"), (self) => {
+                        self.Value = appPropose.Value;
+                    })
                 );
+            });
+
+            // messages to hub
+            UponMessage<BebDeliver>((bebDeliver) => {
+                SendToHub(bebDeliver.Message);
             });
 
             UponMessage<NnarReadReturn>((nnarReadReturn, wrapper) => {
                 var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(wrapper.FromAbstractionId).InstanceId);
 
-                var networkMessage = BuildMessage<NetworkMessage>("hub", (self) => {
-                    self.SenderHost = System.SystemInfo.SELF_HOST;
-                    self.SenderListeningPort = System.SystemInfo.SELF_PORT;
-                    self.Message = BuildMessage<AppReadReturn>(AbstractionId, (self) =>{
+                SendToHub(
+                    BuildMessage<AppReadReturn>(AbstractionId, (self) => {
                         self.Register = register;
                         self.Value = nnarReadReturn.Value;
-                    });
-                });
-
-                System.NetworkManager.SendMessage(
-                    networkMessage,
-                    System.SystemInfo.HUB_HOST,
-                    System.SystemInfo.HUB_PORT
+                    })
                 );
             });
 
             UponMessage<NnarWriteReturn>((nnarWriteReturn, wrapper) => {
                 var (_, register) = Util.DeconstructToInstanceNameAndIndex(System.GetAlgorithm(wrapper.FromAbstractionId).InstanceId);
 
-                var networkMessage = BuildMessage<NetworkMessage>("hub", (self) => {
-                    self.SenderHost = System.SystemInfo.SELF_HOST;
-                    self.SenderListeningPort = System.SystemInfo.SELF_PORT;
-                    self.Message = BuildMessage<AppWriteReturn>(AbstractionId, (self) =>{
-                        self.Register = register;
-                    });
-                });
-
-                System.NetworkManager.SendMessage(
-                    networkMessage,
-                    System.SystemInfo.HUB_HOST,
-                    System.SystemInfo.HUB_PORT
+                SendToHub(
+                    BuildMessage<AppWriteReturn>(AbstractionId, (self) =>{ self.Register = register; })
                 );
             });
         }
 
+        private void SendToHub(Message message)
+        {
+            var networkMessage = BuildMessage<NetworkMessage>("hub", (self) => {
+                self.SenderHost = System.SystemInfo.SELF_HOST;
+                self.SenderListeningPort = System.SystemInfo.SELF_PORT;
+                self.Message = message;
+            });
+
+            System.NetworkManager.SendMessage(
+                networkMessage,
+                System.SystemInfo.HUB_HOST,
+                System.SystemInfo.HUB_PORT
+            );
+        }
     }
 }

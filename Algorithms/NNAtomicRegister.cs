@@ -117,7 +117,9 @@ namespace Project
                 );
             });
 
-            UponMessage<PlDeliver, NnarInternalAck>((plDeliver, nnarInternalAck) => {
+            UponMessage<PlDeliver, NnarInternalAck>(
+                (plDeliver, nnarInternalAck) => nnarInternalAck.ReadId == readid,
+                (plDeliver, nnarInternalAck) => {
                 acks += 1;
                 if (acks > (System.Processes.Count / 2)) {
                     acks = 0;

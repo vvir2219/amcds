@@ -10,26 +10,25 @@ namespace Project
         public BestEffortBroadcast(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            UponMessage(Message.Types.Type.BebBroadcast, (message) => {
+            UponMessage<BebBroadcast>((bebBroadcast) => {
                 foreach (var process in System.Processes)
-                {
-                    var plSend = BuildMessage<PlSend>(ToAbstraction("pl"), (self) =>{
-                        self.Destination = process;
-                        self.Message = message.BebBroadcast.Message;
-                    }, (outer) => { outer.MessageUuid = Guid.NewGuid().ToString(); });
-
-                    System.EventQueue.RegisterMessage(plSend);
-                }
+                    Trigger(
+                        BuildMessage<PlSend>(ToAbstraction("pl"), (self) =>{
+                            self.Destination = process;
+                            self.Message = bebBroadcast.Message;
+                        })
+                    );
             });
 
-            UponMessage(Message.Types.Type.PlDeliver, (message) => {
-                var bebDeliver = BuildMessage<BebDeliver>(ToParentAbstraction(), (self) =>{
-                    self.Message = message.PlDeliver.Message;
-                    self.Sender = message.PlDeliver.Sender;
-                }, (outer) => { outer.SystemId = message.SystemId; });
-
-                System.EventQueue.RegisterMessage(bebDeliver);
+            UponMessage<PlDeliver>((plDeliver, message) => {
+                Trigger(
+                    BuildMessage<BebDeliver>(ToParentAbstraction(), (self) =>{
+                        self.Message = plDeliver.Message;
+                        self.Sender = plDeliver.Sender;
+                    }, (outer) => { outer.SystemId = message.SystemId; })
+                );
             });
+
         }
     }
 }

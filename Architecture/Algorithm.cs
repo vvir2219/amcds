@@ -1,10 +1,8 @@
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Transactions;
-using Google.Protobuf.Reflection;
 using Protocol;
 
 namespace Project
@@ -27,8 +25,7 @@ namespace Project
         public bool Running { get; set; }
         private Queue<Event> activeEvents = new Queue<Event>(),
                              inactiveEvents = new Queue<Event>();
-        private Dictionary<Message.Types.Type, MessageHandler> messageHandlers = new Dictionary<Message.Types.Type, MessageHandler>();
-
+        private Dictionary<List<Message.Types.Type>, MessageHandler> messageHandlers = new Dictionary<List<Message.Types.Type>, MessageHandler>(new ListComparer<Message.Types.Type>());
 
         public Algorithm(System system, string instanceId, string abstractionId, Algorithm parent)
         {
@@ -41,13 +38,42 @@ namespace Project
 
         public void RegisterMessage(Message message)
         {
-            var handler = messageHandlers[message.Type];
+            // searching for handlers starting with the most specific to the most generic
+            var typesList = new List<Message.Types.Type>();
 
-            RegisterEvent(Event.NewMessageEvent(handler.Condition, message, handler.Action));
+            object innerMessage;
+            var outerMessage = message;
+            do {
+                typesList.Add(outerMessage.Type);
+                innerMessage = outerMessage.GetInnerMessageByOwnType();
+
+                if (Util.HasProperty<Message>(innerMessage))
+                    outerMessage = Util.GetProperty<Message>(innerMessage);
+                else
+                    break;
+            } while (true);
+
+            while (typesList.Count > 0)
+            {
+                if (messageHandlers.ContainsKey(typesList)) {
+                    var handler = messageHandlers[typesList];
+                    RegisterEvent(new MessageEvent(
+                        handler.Depth,
+                        handler.Condition,
+                        message,
+                        handler.Action
+                    ));
+                    return;
+                }
+
+                typesList.RemoveAt(typesList.Count -1);
+            }
+
+            throw new Exception($"Message could not be handled: {message}");
         }
         public void RegisterAction(Action action, int? delay = null)
         {
-            RegisterEvent(Event.NewActionEvent(action), delay);
+            RegisterEvent(new ActionEvent(action), delay);
         }
         public void RegisterEvent(Event @event, int? delay = null)
         {
@@ -131,18 +157,104 @@ namespace Project
             return eventHandled;
         }
 
-        protected void UponMessage(Message.Types.Type type, Action<Message> action)
+        // 1 message deep
+        protected void UponMessage<T>(Action<T> action)
         {
-            messageHandlers[type] = new MessageHandler(action);
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>() };
+            messageHandlers[matcher] = new MessageHandler(
+                1,
+                (innerMessages, _) => {
+                    action((T)innerMessages.First());
+                });
         }
-        protected void UponMessage(Message.Types.Type type, Func<Message, bool> condition, Action<Message> action)
+        protected void UponMessage<T>(Func<T, bool> condition, Action<T> action)
         {
-            messageHandlers[type] = new MessageHandler(condition, action);
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>() };
+            messageHandlers[matcher] = new MessageHandler(
+                1,
+                (innerMessages, _) => condition((T)innerMessages.First()),
+                (innerMessages, _) => {
+                    action((T)innerMessages.First());
+                });
+        }
+        protected void UponMessage<T>(Action<T, Message> action)
+        {
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>() };
+            messageHandlers[matcher] = new MessageHandler(
+                1,
+                (innerMessages, outerMessages) => {
+                    action((T)innerMessages.First(), (Message)outerMessages.First());
+                });
+        }
+        protected void UponMessage<T>(Func<T, Message, bool> condition, Action<T, Message> action)
+        {
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>() };
+            messageHandlers[matcher] = new MessageHandler(
+                1,
+                (innerMessages, outerMessages) =>
+                    condition((T)innerMessages.First(), (Message)outerMessages.First()),
+                (innerMessages, outerMessages) => {
+                    action((T)innerMessages.First(), (Message)outerMessages.First());
+                });
+        }
+
+        // 2 messages deep
+        protected void UponMessage<T, T2>(Action<T, T2> action)
+        {
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>(), Util.MessageType<T2>() };
+            messageHandlers[matcher] = new MessageHandler(
+                2,
+                (innerMessages, _) => {
+                    action((T)innerMessages.First(), (T2)innerMessages.ElementAt(1));
+                });
+        }
+        protected void UponMessage<T, T2>(Func<T, T2, bool> condition, Action<T, T2> action)
+        {
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>(), Util.MessageType<T2>() };
+            messageHandlers[matcher] = new MessageHandler(
+                2,
+                (innerMessages, _) =>
+                    condition((T)innerMessages.First(), (T2)innerMessages.ElementAt(1)),
+                (innerMessages, _) => {
+                    action((T)innerMessages.First(), (T2)innerMessages.ElementAt(1));
+                });
+        }
+        protected void UponMessage<T, T2>(Action<T, T2, Message, Message> action)
+        {
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>(), Util.MessageType<T2>() };
+            messageHandlers[matcher] = new MessageHandler(
+                2,
+                (innerMessages, outerMessages) => {
+                    action(
+                        (T)innerMessages.First(),
+                        (T2)innerMessages.ElementAt(1),
+                        (Message)outerMessages.First(),
+                        (Message)outerMessages.ElementAt(1));
+                });
+        }
+        protected void UponMessage<T, T2>(Func<T, T2, Message, Message, bool> condition, Action<T, T2, Message, Message> action)
+        {
+            var matcher = new List<Message.Types.Type>{ Util.MessageType<T>(), Util.MessageType<T2>() };
+            messageHandlers[matcher] = new MessageHandler(
+                2,
+                (innerMessages, outerMessages) =>
+                    condition(
+                        (T)innerMessages.First(),
+                        (T2)innerMessages.ElementAt(1),
+                        (Message)outerMessages.First(),
+                        (Message)outerMessages.ElementAt(1)),
+                (innerMessages, outerMessages) => {
+                    action(
+                        (T)innerMessages.First(),
+                        (T2)innerMessages.ElementAt(1),
+                        (Message)outerMessages.First(),
+                        (Message)outerMessages.ElementAt(1));
+                });
         }
 
         protected void UponCondition(Func<bool> condition, Action action)
         {
-            RegisterEvent(Event.NewConditionEvent(condition, action));
+            RegisterEvent(new ConditionEvent(condition, action));
         }
 
         protected string ToAbstraction(string toInstanceId = "")
@@ -166,7 +278,12 @@ namespace Project
         // });
         protected Message BuildMessage<T>(string toAbstractionId, Action<T> innerBuilder = null, Action<Message> outerBuilder = null) where T : new()
         {
-            return Util.BuildMessage<T>(AbstractionId, toAbstractionId, innerBuilder, outerBuilder);
+            return Util.BuildMessage<T>(System.SystemId, AbstractionId, toAbstractionId, innerBuilder, outerBuilder);
+        }
+
+        protected void Trigger(Message message)
+        {
+            System.RegisterMessage(message);
         }
     }
 }

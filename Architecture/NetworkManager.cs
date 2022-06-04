@@ -35,7 +35,7 @@ namespace Project
                     while (running) {
                         Socket handler = socket.Accept();
                         (new Thread(() => {
-                            Console.WriteLine("Connection accepted");
+                            // Console.WriteLine("Connection accepted");
 
                             // read message length
                             var buffer = new byte[4];
@@ -83,9 +83,20 @@ namespace Project
             byte[] bytes = message.ToByteArray();
 
             using (Socket socket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp)) {
-                socket.Connect(endPoint);
-                socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(bytes.Length)));
-                socket.Send(bytes);
+                bool sent = false;
+                while (! sent) {
+                    try
+                    {
+                        socket.Connect(endPoint);
+                        socket.Send(BitConverter.GetBytes(IPAddress.HostToNetworkOrder(bytes.Length)));
+                        socket.Send(bytes);
+                        sent = true;
+                    }
+                    catch (SocketException)
+                    {
+                        // yeaaaa, ignore it
+                    }
+                }
             }
         }
 

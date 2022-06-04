@@ -1,0 +1,13 @@
+#!/bin/bash
+
+[ $# -lt 1 ] && {
+	>&2 echo "Usage: $0 <owner> [1] [2] [3]"
+	exit 1
+}
+
+owner=$1
+shift
+
+for index; do
+	dotnet run $owner $index &
+done

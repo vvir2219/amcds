@@ -84,10 +84,10 @@ namespace Project
             // should i try to kill old ep's and take the epochTimestamp for myself?
             var instanceId = $"ep[{epochTimestamp}]";
 
-            if (ep != null) {
-                ep.RegisterAction(() => { ep.Running = false; });
-            }
-            this.epochTimestamp = epochTimestamp;
+            // if (ep != null) {
+            //     ep.RegisterAction(() => { ep.Running = false; });
+            // }
+            // this.epochTimestamp = epochTimestamp;
 
             ep = new EpochConsensus(
                 System,

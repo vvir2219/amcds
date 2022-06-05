@@ -1,5 +1,4 @@
 using System;
-using System.Net.Http.Headers;
 using System.Threading;
 using Protocol;
 
@@ -19,7 +18,7 @@ namespace Project
             : base(system, instanceId, abstractionId, parent)
         {
             RegisterAbstractionStack(AbstractionId + ".ec");
-            leader = System.CurrentProcess;
+            leader = Util.Maxrank(System.Processes);
             RegisterEpochConsensus();
 
             UponMessage<UcPropose>((ucPropose) => {
@@ -29,6 +28,7 @@ namespace Project
             UponMessage<EcStartEpoch>((ecStartEpoch) => {
                 newTimestamp = ecStartEpoch.NewTimestamp;
                 newLeader = ecStartEpoch.NewLeader;
+                Console.WriteLine($"ecstartepoch: {newTimestamp}");
                 Trigger(BuildMessage<EpAbort>(ToAbstraction($"ep[{epochTimestamp}]")));
             });
 
@@ -69,6 +69,8 @@ namespace Project
                 });
         }
 
+        private EpochConsensus ep = null;
+
         public void RegisterEpochConsensus(EpInternalState state = null)
         {
             (new Thread(() => {
@@ -78,15 +80,24 @@ namespace Project
 
         public Algorithm CreateEpochConsensus(int epochTimestamp, EpInternalState state = null)
         {
-            // should i try to kill old ep's and take the instanceid for myself?
+            Console.WriteLine($"EpochTimestamp: {epochTimestamp}");
+            // should i try to kill old ep's and take the epochTimestamp for myself?
             var instanceId = $"ep[{epochTimestamp}]";
-            return new EpochConsensus(
+
+            if (ep != null) {
+                ep.RegisterAction(() => { ep.Running = false; });
+            }
+            this.epochTimestamp = epochTimestamp;
+
+            ep = new EpochConsensus(
                 System,
                 instanceId,
                 AbstractionId + $".{instanceId}",
                 this,
                 state ?? new EpInternalState(),
                 epochTimestamp);
+
+            return ep;
         }
     }
 }

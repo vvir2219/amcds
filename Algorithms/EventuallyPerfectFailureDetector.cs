@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using Protocol;
 
 namespace Project
@@ -12,12 +13,22 @@ namespace Project
         private HashSet<ProcessId> alive, suspected;
         private int delay = delta;
 
-        private Action OnTimeout;
+        private void StartTimer()
+        {
+            RegisterAction(() => { Trigger(BuildMessage<EpfdTimeout>(AbstractionId)); }, delay);
+        }
 
         public EventuallyPerfectFailureDetector(System system, string instanceId, string abstractionId, Algorithm parent)
             : base(system, instanceId, abstractionId, parent)
         {
-            OnTimeout = () => {
+            alive = System.Processes.ToHashSet();
+            suspected = new HashSet<ProcessId>();
+            StartTimer();
+
+            UponMessage<EpfdTimeout>((_) => {
+                Console.WriteLine($"{System.CurrentProcess.Owner}-{System.CurrentProcess.Index}: On timeout {delay}ms" +
+                                   "\n\talive: "+ string.Join(", ", alive.Select((p) => $"{p.Owner}-{p.Index}")) +
+                                   "\n\tsuspected: "+ string.Join(", ", suspected.Select((p) => $"{p.Owner}-{p.Index}")));
                 if (alive.Intersect(suspected).Count() > 0)
                     delay += delta;
 
@@ -45,12 +56,8 @@ namespace Project
                 }
 
                 alive.Clear();
-                RegisterAction(OnTimeout, delay);
-            };
-
-            alive = System.Processes.ToHashSet();
-            suspected = new HashSet<ProcessId>();
-            RegisterAction(OnTimeout, delay);
+                StartTimer();
+            });
 
             UponMessage<PlDeliver, EpfdInternalHeartbeatRequest>((plDeliver, _) => {
                 Trigger(

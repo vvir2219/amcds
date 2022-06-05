@@ -13,7 +13,7 @@ namespace Project
         {
             RegisterAbstractionStack(AbstractionId + ".eld");
 
-            trusted = System.CurrentProcess;
+            trusted = Util.Maxrank(System.Processes);
             lastTimestamp = 0;
             timestamp = System.CurrentProcess.Rank;
 

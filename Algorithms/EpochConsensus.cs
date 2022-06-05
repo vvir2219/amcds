@@ -109,7 +109,7 @@ namespace Project
                     })
                 );
 
-                Running = false;
+                RegisterAction(() => { Running = false; });
             });
         }
 

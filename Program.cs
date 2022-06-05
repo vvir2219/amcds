@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading;
 using Protocol;
 
 namespace Project
@@ -22,7 +19,7 @@ namespace Project
 
         static void PrintUsageAndExit()
         {
-            Console.WriteLine("Usage: dotnet run owner index");
+            Console.WriteLine("Usage: dotnet run owner base-port index");
             global::System.Environment.Exit(1);
         }
 
@@ -30,16 +27,17 @@ namespace Project
         {
             try
             {
-                if (args.Length != 2) PrintUsageAndExit();
+                if (args.Length != 3) PrintUsageAndExit();
 
                 string owner = args[0];
-                int index = int.Parse(args[1]);
+                int base_port = int.Parse(args[1]);
+                int index = int.Parse(args[2]);
 
                 systemInfo = new SystemInfo {
                     HUB_HOST = HUB_HOST,
                     HUB_PORT = HUB_PORT,
                     SELF_HOST = BASE_HOST,
-                    SELF_PORT = BASE_PORT + index,
+                    SELF_PORT = base_port + index,
                     SELF_OWNER = owner,
                     SELF_INDEX = index
                 };

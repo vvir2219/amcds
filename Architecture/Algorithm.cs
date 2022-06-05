@@ -82,6 +82,8 @@ namespace Project
         }
         public void RegisterEvent(Event @event, int? delay = null)
         {
+            if (! Running) return;
+
             (new Thread(() => {
                 if (delay.HasValue) Thread.Sleep(delay.Value);
 
@@ -96,7 +98,7 @@ namespace Project
                         inactiveEvents.Enqueue(@event);
                     }
                 }
-            })).Start();
+            }){ Name = @event.Type.ToString() }).Start();
         }
 
         private void StartHandlingEvents()

@@ -6,7 +6,7 @@ namespace Project
 {
     class EventualLeaderDetector : Algorithm
     {
-        private HashSet<ProcessId> suspected;
+        private HashSet<ProcessId> alive;
         private ProcessId leader;
 
         public EventualLeaderDetector(System system, string instanceId, string abstractionId, Algorithm parent)
@@ -14,21 +14,20 @@ namespace Project
         {
             RegisterAbstractionStack(AbstractionId + ".epfd");
 
-            suspected = System.Processes.ToHashSet();
+            alive = System.Processes.ToHashSet();
             leader = null;
 
             UponMessage<EpfdSuspect>((epfdSuspect) => {
-                suspected.Add(epfdSuspect.Process);
+                alive.Remove(epfdSuspect.Process);
             });
 
             UponMessage<EpfdRestore>((epfdRestore) => {
-                suspected.Remove(epfdRestore.Process);
+                alive.Add(epfdRestore.Process);
             });
 
-            UponCondition(() => System.Processes.Count > suspected.Count && leader != Util.Maxrank(System.Processes.Except(suspected)),
+            UponCondition(() => alive.Count > 0 && leader != Util.Maxrank(alive),
             () => {
-                leader = Util.Maxrank(System.Processes.Except(suspected));
-
+                leader = Util.Maxrank(alive);
                 Trigger(BuildMessage<EldTrust>(ToParentAbstraction(), (self) => { self.Process = leader; }));
             });
         }

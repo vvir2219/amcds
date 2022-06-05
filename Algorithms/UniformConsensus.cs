@@ -1,4 +1,3 @@
-using System;
 using System.Threading;
 using Protocol;
 
@@ -28,7 +27,6 @@ namespace Project
             UponMessage<EcStartEpoch>((ecStartEpoch) => {
                 newTimestamp = ecStartEpoch.NewTimestamp;
                 newLeader = ecStartEpoch.NewLeader;
-                Console.WriteLine($"ecstartepoch: {newTimestamp}");
                 Trigger(BuildMessage<EpAbort>(ToAbstraction($"ep[{epochTimestamp}]")));
             });
 
@@ -69,8 +67,6 @@ namespace Project
                 });
         }
 
-        private EpochConsensus ep = null;
-
         public void RegisterEpochConsensus(EpInternalState state = null)
         {
             (new Thread(() => {
@@ -80,24 +76,16 @@ namespace Project
 
         public Algorithm CreateEpochConsensus(int epochTimestamp, EpInternalState state = null)
         {
-            Console.WriteLine($"EpochTimestamp: {epochTimestamp}");
             // should i try to kill old ep's and take the epochTimestamp for myself?
             var instanceId = $"ep[{epochTimestamp}]";
 
-            // if (ep != null) {
-            //     ep.RegisterAction(() => { ep.Running = false; });
-            // }
-            // this.epochTimestamp = epochTimestamp;
-
-            ep = new EpochConsensus(
+            return new EpochConsensus(
                 System,
                 instanceId,
                 AbstractionId + $".{instanceId}",
                 this,
                 state ?? new EpInternalState(),
                 epochTimestamp);
-
-            return ep;
         }
     }
 }

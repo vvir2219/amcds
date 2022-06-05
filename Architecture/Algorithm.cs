@@ -27,6 +27,8 @@ namespace Project
                              inactiveEvents = new Queue<Event>();
         private Dictionary<List<Message.Types.Type>, MessageHandler> messageHandlers = new Dictionary<List<Message.Types.Type>, MessageHandler>(new ListComparer<Message.Types.Type>());
 
+        protected Thread handlingThread;
+
         public Algorithm(System system, string instanceId, string abstractionId, Algorithm parent)
         {
             System = system;
@@ -104,12 +106,12 @@ namespace Project
         private void StartHandlingEvents()
         {
             Running = true;
-            (new Thread(() => {
+            handlingThread = new Thread(() => {
                 while (Running) {
                     bool anyEventHandled = false;
                     // wait for a message/event to arrive
                     lock (activeEvents) {
-                        while (activeEvents.Count > 0) {
+                        while (Running && activeEvents.Count > 0) {
                             // handle the message
                             var @event = activeEvents.Dequeue();
                             var eventHandled = HandleEvent(@event);
@@ -117,7 +119,7 @@ namespace Project
                         };
 
                         lock (inactiveEvents) {
-                            while (anyEventHandled && inactiveEvents.Count > 0) {
+                            while (Running && anyEventHandled && inactiveEvents.Count > 0) {
                                 var @event = inactiveEvents.Dequeue();
                                 RegisterEvent(@event);
                             }
@@ -126,7 +128,8 @@ namespace Project
                         Monitor.Wait(activeEvents);
                     }
                 }
-            })).Start();
+            });
+            handlingThread.Start();
         }
 
         private bool HandleEvent(Event @event)
